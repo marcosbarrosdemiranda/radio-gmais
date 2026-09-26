@@ -88,17 +88,27 @@ db.exec(`
     FOREIGN KEY (chamada_id) REFERENCES chamadas(id) ON DELETE CASCADE
   );
 
-  -- Tabela de locutores (vozes)
-  CREATE TABLE IF NOT EXISTS locutores (
+  -- Tabela de Programação (Grade)
+  CREATE TABLE IF NOT EXISTS programacao (
     id TEXT PRIMARY KEY,
     nome TEXT NOT NULL,
-    voz_id TEXT NOT NULL,
-    idioma TEXT DEFAULT 'pt-BR',
-    genero TEXT DEFAULT 'masculino',
-    provedor TEXT DEFAULT 'elevenlabs',
-    configuracoes TEXT DEFAULT '{}',
+    ativa INTEGER DEFAULT 0,
     criado_em TEXT DEFAULT (datetime('now'))
   );
+
+  -- Tabela de Slots da Programação
+  CREATE TABLE IF NOT EXISTS programacao_slots (
+    id TEXT PRIMARY KEY,
+    programacao_id TEXT,
+    type TEXT NOT NULL, -- musicas, chamadas, jingles, playlist
+    category TEXT NOT NULL,
+    count INTEGER NOT NULL,
+    ordem INTEGER NOT NULL,
+    mode TEXT DEFAULT 'aleatorio',
+    FOREIGN KEY (programacao_id) REFERENCES programacao(id) ON DELETE CASCADE
+  );
+
+  -- Tabela de locutores (vozes)
 
   -- Tabela de histórico de reprodução
   CREATE TABLE IF NOT EXISTS historico (

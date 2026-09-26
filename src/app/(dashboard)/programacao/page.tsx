@@ -69,6 +69,30 @@ export default function ProgramacaoPage() {
     }
   };
 
+  const salvarProgramacao = async () => {
+    if (!nome) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/programacao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ nome, slots }),
+      });
+
+      if (response.ok) {
+        alert('Programação salva com sucesso!');
+      } else {
+        alert('Erro ao salvar programação');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar programação:', error);
+      alert('Erro ao salvar programação');
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between">
@@ -80,7 +104,11 @@ export default function ProgramacaoPage() {
           <p style={{ color: '#9ca3af' }}>Monte o esqueleto/fórmula do que a rádio vai tocar em looping</p>
         </div>
 
-        <button className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-colors shadow-lg" style={{ background: '#DB1931', color: '#fff' }}>
+        <button
+          onClick={salvarProgramacao}
+          className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-colors shadow-lg"
+          style={{ background: '#DB1931', color: '#fff' }}
+        >
           <Save size={20} /> Salvar Grade
         </button>
       </div>
