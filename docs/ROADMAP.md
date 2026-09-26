@@ -28,3 +28,15 @@
 - **Grade de Horários:** Configuração centralizada dos dias e horários de funcionamento (Ex: Seg a Sab, das 07:00 às 22:00).
 - **Auto-Start / Resiliência a Restart:** Se o computador da filial for reiniciado por queda de energia no meio do expediente, o sistema cliente da rádio deve inicializar automaticamente junto com o Windows/Linux (auto-start) e já começar a tocar.
 - **Kiosk / Desktop App:** Para garantir essas funcionalidades (auto-start e persistência), o Módulo da Filial/Loja não será apenas um site no navegador, mas sim um aplicativo instalável (como Electron ou Tauri) instalado na máquina do supermercado.
+
+### 5. Lógica de Sequenciamento (Grade/Blocos de Programação)
+- O motor de reprodução não será apenas um `while(true) { tocaPlaylist() }`.
+- O sistema usará um **Padrão de Rotação (Sequenciador)**. Exemplo de regra:
+   1. Música da Playlist 1 (ex: MPB)
+   2. Música da Playlist 2 (ex: Pop)
+   3. Música da Playlist 2 (ex: Pop)
+   4. **Chamada / Vinheta Comercial**
+   5. Retorna ao início do padrão.
+- Nas playlists, haverá opção de **Modo de Extração**:
+   - `Sequencial`: Pega a próxima música da lista seguindo a ordem (1,2,3...).
+   - `Aleatório (Shuffle)`: Pega uma música ao acaso que ainda não tocou recentemente.
