@@ -23,3 +23,8 @@
 - As filiais farão o download físico do MP3/Áudios e do JSON da playlist para um banco local.
 - **Player Resiliente:** Se a rede (VPN/Internet) cair, o player da filial usa o banco local pré-baixado e continua rodando indefinidamente de forma autônoma (Offline-First).
 - Assim que a rede volta, ele verifica se existe "nova carga" e atualiza em background.
+
+### 4. Agendamento e Automação (Kiosk Mode)
+- **Grade de Horários:** Configuração centralizada dos dias e horários de funcionamento (Ex: Seg a Sab, das 07:00 às 22:00).
+- **Auto-Start / Resiliência a Restart:** Se o computador da filial for reiniciado por queda de energia no meio do expediente, o sistema cliente da rádio deve inicializar automaticamente junto com o Windows/Linux (auto-start) e já começar a tocar.
+- **Kiosk / Desktop App:** Para garantir essas funcionalidades (auto-start e persistência), o Módulo da Filial/Loja não será apenas um site no navegador, mas sim um aplicativo instalável (como Electron ou Tauri) instalado na máquina do supermercado.
