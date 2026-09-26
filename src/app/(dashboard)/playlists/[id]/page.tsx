@@ -1,8 +1,9 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, use } from 'react';
 import Link from 'next/link';
-import { ArrowLeft, Play, Pause, Trash2, Edit, Clock, Music, GripVertical, Plus, X } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { ArrowLeft, Play, Pause, Trash2, Edit, Clock, Music, GripVertical } from 'lucide-react';
 
 interface MusicItem {
   id: string;
@@ -11,33 +12,48 @@ interface MusicItem {
   duracao: number;
 }
 
-export default function PlaylistDetailPage({ params }: { params: { id: string } }) {
+export default function PlaylistDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const router = useRouter();
+  const { id } = use(params);
   const [playlist, setPlaylist] = useState<any>(null);
   const [musicas, setMusicas] = useState<MusicItem[]>([]);
+  const [loading, setLoading] = useState(true);
   const [tocando, setTocando] = useState<string | null>(null);
 
   useEffect(() => {
-    // Dados simulados
-    setPlaylist({
-      id: params.id,
-      nome: 'Manhã Comercial',
-      descricao: 'Músicas para o período da manhã',
-      ativa: true,
-    });
-    setMusicas([
-      { id: '1', titulo: 'Música Exemplo 1', artista: 'Artista 1', duracao: 240 },
-      { id: '2', titulo: 'Música Exemplo 2', artista: 'Artista 2', duracao: 180 },
-      { id: '3', titulo: 'Música Exemplo 3', artista: 'Artista 3', duracao: 300 },
-    ]);
-  }, [params.id]);
+    fetch(`/api/playlists/${id}`)
+      .then(res => res.json())
+      .then(data => {
+        setPlaylist(data);
+        setMusicas(data.musicas || []);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Erro ao buscar playlist:', err);
+        setLoading(false);
+      });
+  }, [id]);
+
+  const handleTocar = () => {
+    alert(`Iniciando reprodução da playlist: ${playlist?.nome}`);
+    // Placeholder para o motor de áudio
+  };
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const totalDuracao = musicas.reduce((acc, m) => acc + m.duracao, 0);
+  const totalDuracao = musicas.reduce((acc, m) => acc + (m.duracao || 0), 0);
+
+  if (loading) {
+    return <div className="text-center py-12">Carregando...</div>;
+  }
+
+  if (!playlist) {
+    return <div className="text-center py-12">Playlist não encontrada</div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -54,19 +70,21 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
             <ArrowLeft size={20} />
           </Link>
           <div>
-            <h1 className="text-2xl font-bold">{playlist?.nome || 'Playlist'}</h1>
-            <p style={{ color: '#9ca3af' }}>{playlist?.descricao}</p>
+            <h1 className="text-2xl font-bold">{playlist.nome}</h1>
+            <p style={{ color: '#9ca3af' }}>{playlist.descricao}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
-          <button
+          <Link
+            href={`/playlists/${playlist.id}/editar`}
             className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
             style={{ background: '#404048', color: '#fff' }}
           >
             <Edit size={18} />
             Editar
-          </button>
+          </Link>
           <button
+            onClick={handleTocar}
             className="flex items-center gap-2 px-4 py-2 rounded-lg transition-colors"
             style={{ background: '#DB1931', color: '#fff' }}
           >
@@ -105,11 +123,11 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
           <div className="flex items-center gap-2 mb-2">
             <div
               className="w-3 h-3 rounded-full"
-              style={{ background: playlist?.ativa ? '#22c55e' : '#ef4444' }}
+              style={{ background: playlist.ativa ? '#22c55e' : '#ef4444' }}
             />
             <span className="text-sm" style={{ color: '#9ca3af' }}>Status</span>
           </div>
-          <p className="text-2xl font-bold">{playlist?.ativa ? 'Ativa' : 'Inativa'}</p>
+          <p className="text-2xl font-bold">{playlist.ativa ? 'Ativa' : 'Inativa'}</p>
         </div>
       </div>
 
@@ -120,13 +138,6 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
       >
         <div className="p-4 flex items-center justify-between" style={{ borderBottom: '1px solid #404048' }}>
           <h3 className="font-semibold">Músicas</h3>
-          <button
-            className="flex items-center gap-2 px-3 py-1 rounded-lg text-sm transition-colors"
-            style={{ background: '#404048', color: '#fff' }}
-          >
-            <Plus size={14} />
-            Adicionar
-          </button>
         </div>
 
         {musicas.length === 0 ? (
@@ -142,7 +153,6 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
                 <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: '#9ca3af' }}>Título</th>
                 <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: '#9ca3af' }}>Artista</th>
                 <th className="text-left px-4 py-3 text-sm font-medium" style={{ color: '#9ca3af' }}>Duração</th>
-                <th className="text-right px-4 py-3 text-sm font-medium" style={{ color: '#9ca3af' }}>Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -168,14 +178,6 @@ export default function PlaylistDetailPage({ params }: { params: { id: string } 
                   <td className="px-4 py-3 text-sm" style={{ color: '#9ca3af' }}>{musica.artista}</td>
                   <td className="px-4 py-3 text-sm" style={{ color: '#9ca3af' }}>
                     {formatDuration(musica.duracao)}
-                  </td>
-                  <td className="px-4 py-3 text-right">
-                    <button
-                      className="p-1 rounded transition-colors"
-                      style={{ color: '#ef4444' }}
-                    >
-                      <Trash2 size={16} />
-                    </button>
                   </td>
                 </tr>
               ))}

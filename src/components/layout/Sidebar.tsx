@@ -15,6 +15,7 @@ import {
   Zap,
   Calendar,
   Volume2,
+  Folder,
 } from 'lucide-react';
 
 const menuItems = [
@@ -25,7 +26,8 @@ const menuItems = [
   { label: 'Chamadas', href: '/chamadas', icon: Mic },
   { label: 'Instantâneas', href: '/chamadas/instantaneas', icon: Zap },
   { label: 'Locutor Virtual', href: '/chamadas/locutor-virtual', icon: Volume2 },
-  { label: 'Playlists', href: '/playlists', icon: ListMusic },
+  { label: 'Programação (Grade)', href: '/programacao', icon: ListMusic },
+  { label: 'Playlists', href: '/playlists', icon: Folder },
   { label: 'Eventos', href: '/eventos', icon: Calendar },
   { label: 'Histórico', href: '/historico', icon: History },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },

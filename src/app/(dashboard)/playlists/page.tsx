@@ -2,14 +2,14 @@
 
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
-import { ListMusic, Plus, Play, Pause, Clock, Music, Trash2, Edit, Calendar, MoreVertical } from 'lucide-react';
+import { ListMusic, Plus, Play, Clock, Music, Trash2, Edit } from 'lucide-react';
 
 interface Playlist {
   id: string;
   nome: string;
   descricao: string;
-  total_musicas: number;
-  duracao_total: number;
+  musicas: any[];
+  chamadas: any[];
   criado_em: string;
   ativa: boolean;
 }
@@ -18,48 +18,38 @@ export default function PlaylistsPage() {
   const [playlists, setPlaylists] = useState<Playlist[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const carregarPlaylists = () => {
+    fetch('/api/playlists')
+      .then(res => res.json())
+      .then(data => {
+        setPlaylists(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Erro ao buscar playlists:', err);
+        setLoading(false);
+      });
+  };
+
   useEffect(() => {
-    // Dados simulados
-    setPlaylists([
-      {
-        id: '1',
-        nome: 'Manhã Comercial',
-        descricao: 'Músicas para o período da manhã',
-        total_musicas: 45,
-        duracao_total: 2700,
-        criado_em: '2026-09-20',
-        ativa: true,
-      },
-      {
-        id: '2',
-        nome: 'Tarde Relaxante',
-        descricao: 'Músicas suaves para a tarde',
-        total_musicas: 38,
-        duracao_total: 2280,
-        criado_em: '2026-09-19',
-        ativa: true,
-      },
-      {
-        id: '3',
-        nome: 'Noite Especial',
-        descricao: 'Músicas para o período noturno',
-        total_musicas: 52,
-        duracao_total: 3120,
-        criado_em: '2026-09-18',
-        ativa: false,
-      },
-      {
-        id: '4',
-        nome: 'Sábado Animado',
-        descricao: 'Músicas animadas para sábados',
-        total_musicas: 60,
-        duracao_total: 3600,
-        criado_em: '2026-09-17',
-        ativa: true,
-      },
-    ]);
-    setLoading(false);
+    carregarPlaylists();
   }, []);
+
+  const excluirPlaylist = async (id: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta playlist?')) return;
+
+    try {
+      const response = await fetch(`/api/playlists/${id}`, { method: 'DELETE' });
+      if (response.ok) {
+        carregarPlaylists();
+      } else {
+        alert('Erro ao excluir playlist');
+      }
+    } catch (error) {
+      console.error('Erro ao excluir playlist:', error);
+      alert('Erro ao excluir playlist');
+    }
+  };
 
   const formatDuration = (seconds: number) => {
     const hours = Math.floor(seconds / 3600);
@@ -68,6 +58,10 @@ export default function PlaylistsPage() {
       return `${hours}h ${mins}min`;
     }
     return `${mins} min`;
+  };
+
+  const calcularDuracaoTotal = (musicas: any[]) => {
+    return musicas.reduce((acc, m) => acc + (m.duracao || 0), 0);
   };
 
   return (
@@ -144,16 +138,16 @@ export default function PlaylistsPage() {
               {/* Info */}
               <div className="p-4">
                 <h3 className="font-semibold text-lg mb-1">{playlist.nome}</h3>
-                <p className="text-sm mb-3" style={{ color: '#9ca3af' }}>{playlist.descricao}</p>
+                <p className="text-sm mb-3 truncate" style={{ color: '#9ca3af' }}>{playlist.descricao}</p>
 
                 <div className="flex items-center gap-4 text-sm mb-4" style={{ color: '#9ca3af' }}>
                   <div className="flex items-center gap-1">
                     <Music size={14} />
-                    <span>{playlist.total_musicas} músicas</span>
+                    <span>{(playlist.musicas?.length || 0)} músicas</span>
                   </div>
                   <div className="flex items-center gap-1">
                     <Clock size={14} />
-                    <span>{formatDuration(playlist.duracao_total)}</span>
+                    <span>{formatDuration(calcularDuracaoTotal(playlist.musicas || []))}</span>
                   </div>
                 </div>
 
@@ -182,6 +176,7 @@ export default function PlaylistsPage() {
                     <Edit size={16} />
                   </Link>
                   <button
+                    onClick={() => excluirPlaylist(playlist.id)}
                     className="p-2 rounded-lg transition-colors"
                     style={{ background: '#404048', color: '#9ca3af' }}
                     onMouseOver={(e) => e.currentTarget.style.color = '#ef4444'}
