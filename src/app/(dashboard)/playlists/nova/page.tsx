@@ -1,6 +1,7 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { ArrowLeft, Save, Music, Plus, X, GripVertical, Clock, Shuffle } from 'lucide-react';
 
@@ -12,15 +13,26 @@ interface MusicItem {
 }
 
 export default function NovaPlaylistPage() {
+  const router = useRouter();
   const [nome, setNome] = useState('');
   const [descricao, setDescricao] = useState('');
   const [musicas, setMusicas] = useState<MusicItem[]>([]);
   const [busca, setBusca] = useState('');
-  const [musicasDisponiveis, setMusicasDisponiveis] = useState<MusicItem[]>([
-    { id: '1', titulo: 'Música Exemplo 1', artista: 'Artista 1', duracao: 240 },
-    { id: '2', titulo: 'Música Exemplo 2', artista: 'Artista 2', duracao: 180 },
-    { id: '3', titulo: 'Música Exemplo 3', artista: 'Artista 3', duracao: 300 },
-  ]);
+  const [musicasDisponiveis, setMusicasDisponiveis] = useState<MusicItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    fetch('/api/musicas')
+      .then(res => res.json())
+      .then(data => {
+        setMusicasDisponiveis(data);
+        setLoading(false);
+      })
+      .catch(err => {
+        console.error('Erro ao buscar músicas:', err);
+        setLoading(false);
+      });
+  }, []);
 
   const adicionarMusica = (musica: MusicItem) => {
     if (!musicas.find(m => m.id === musica.id)) {
@@ -34,11 +46,41 @@ export default function NovaPlaylistPage() {
 
   const formatDuration = (seconds: number) => {
     const mins = Math.floor(seconds / 60);
-    const secs = seconds % 60;
+    const secs = Math.floor(seconds % 60);
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
   const totalDuracao = musicas.reduce((acc, m) => acc + m.duracao, 0);
+
+  const salvarPlaylist = async () => {
+    if (!nome) {
+      alert('Nome é obrigatório');
+      return;
+    }
+
+    try {
+      const response = await fetch('/api/playlists', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nome,
+          descricao,
+          musicas,
+          intervaloChamadas: 15 // Default
+        }),
+      });
+
+      if (response.ok) {
+        router.push('/playlists');
+        router.refresh();
+      } else {
+        alert('Erro ao salvar playlist');
+      }
+    } catch (error) {
+      console.error('Erro ao salvar playlist:', error);
+      alert('Erro ao salvar playlist');
+    }
+  };
 
   return (
     <div className="space-y-6">
@@ -60,6 +102,7 @@ export default function NovaPlaylistPage() {
           </div>
         </div>
         <button
+          onClick={salvarPlaylist}
           className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors"
           style={{ background: '#22c55e', color: '#fff' }}
           onMouseOver={(e) => e.currentTarget.style.background = '#16a34a'}
@@ -123,32 +166,37 @@ export default function NovaPlaylistPage() {
                 style={{ color: '#fff' }}
               />
             </div>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {musicasDisponiveis
-                .filter(m => m.titulo.toLowerCase().includes(busca.toLowerCase()))
-                .map((musica) => (
-                  <div
-                    key={musica.id}
-                    className="flex items-center gap-3 p-2 rounded-lg"
-                    style={{ background: '#282930' }}
-                  >
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{musica.titulo}</p>
-                      <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{musica.artista}</p>
-                    </div>
-                    <span className="text-xs" style={{ color: '#9ca3af' }}>
-                      {formatDuration(musica.duracao)}
-                    </span>
-                    <button
-                      onClick={() => adicionarMusica(musica)}
-                      className="p-1 rounded transition-colors"
-                      style={{ color: '#22c55e' }}
+
+            {loading ? (
+              <p className="text-sm p-4 text-center" style={{ color: '#9ca3af' }}>Carregando...</p>
+            ) : (
+              <div className="space-y-2 max-h-64 overflow-y-auto">
+                {musicasDisponiveis
+                  .filter(m => m.titulo.toLowerCase().includes(busca.toLowerCase()))
+                  .map((musica) => (
+                    <div
+                      key={musica.id}
+                      className="flex items-center gap-3 p-2 rounded-lg"
+                      style={{ background: '#282930' }}
                     >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                ))}
-            </div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-medium truncate">{musica.titulo}</p>
+                        <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{musica.artista}</p>
+                      </div>
+                      <span className="text-xs" style={{ color: '#9ca3af' }}>
+                        {formatDuration(musica.duracao)}
+                      </span>
+                      <button
+                        onClick={() => adicionarMusica(musica)}
+                        className="p-1 rounded transition-colors"
+                        style={{ color: '#22c55e' }}
+                      >
+                        <Plus size={16} />
+                      </button>
+                    </div>
+                  ))}
+              </div>
+            )}
           </div>
         </div>
 
@@ -205,34 +253,6 @@ export default function NovaPlaylistPage() {
                 ))}
               </div>
             )}
-          </div>
-
-          {/* Ações */}
-          <div
-            className="rounded-xl p-4"
-            style={{ background: '#1F2026', border: '1px solid #404048' }}
-          >
-            <h3 className="font-semibold mb-3">⚡ Ações</h3>
-            <div className="space-y-2">
-              <button
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
-                style={{ background: '#404048', color: '#fff' }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#52525b'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#404048'}
-              >
-                <Shuffle size={16} />
-                Embaralhar Músicas
-              </button>
-              <button
-                className="w-full flex items-center justify-center gap-2 py-2 rounded-lg transition-colors"
-                style={{ background: '#404048', color: '#fff' }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#52525b'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#404048'}
-              >
-                <Clock size={16} />
-                Agendar Playlist
-              </button>
-            </div>
           </div>
         </div>
       </div>
