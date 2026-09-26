@@ -28,13 +28,41 @@ export default function PlayerPage() {
     }
   }, [volume, isMuted]);
 
+  const buscarProximaMusica = async () => {
+    try {
+      const res = await fetch('/api/player/proximo');
+      if (res.ok) {
+        const track = await res.json();
+        setCurrentTrack(track);
+        // Reseta o player e toca automaticamente
+        if (audioRef.current) {
+          audioRef.current.src = track.arquivo_url;
+          audioRef.current.load();
+          audioRef.current.play().then(() => setIsPlaying(true));
+        }
+      }
+    } catch (err) {
+      console.error('Erro ao buscar próxima música:', err);
+    }
+  };
+
+  // Carrega a primeira ao iniciar
+  useEffect(() => {
+    buscarProximaMusica();
+  }, []);
+
   const togglePlay = () => {
     if (isPlaying) {
       audioRef.current?.pause();
+      setIsPlaying(false);
     } else {
-      audioRef.current?.play();
+      audioRef.current?.play().then(() => setIsPlaying(true));
     }
-    setIsPlaying(!isPlaying);
+  };
+
+  const handleEnded = () => {
+    setIsPlaying(false);
+    buscarProximaMusica(); // Pula para a próxima automaticamente
   };
 
   const handleTimeUpdate = () => {
@@ -69,7 +97,7 @@ export default function PlayerPage() {
       <audio
         ref={audioRef}
         onTimeUpdate={handleTimeUpdate}
-        onEnded={() => setIsPlaying(false)}
+        onEnded={handleEnded}
       />
 
       {/* Header */}
