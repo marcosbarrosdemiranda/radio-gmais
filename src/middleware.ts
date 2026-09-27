@@ -50,7 +50,7 @@ export async function middleware(request: NextRequest) {
 
   // Verify the token using Edge-compatible JWT verification
   const payload = await verifyTokenEdge(token);
-  
+
   if (!payload) {
     // Invalid token, clear it and redirect to login
     const response = NextResponse.redirect(new URL('/login', request.url));
@@ -62,6 +62,14 @@ export async function middleware(request: NextRequest) {
       path: '/',
     });
     return response;
+  }
+
+  // MODO FILIAL: Restringir acesso administrativo
+  if (process.env.IS_FILIAL === 'true') {
+     const adminRoutes = ['/configuracoes', '/musicas', '/playlists']; // Exemplos de rotas administrativas
+     if (adminRoutes.some(route => pathname.startsWith(route))) {
+         return NextResponse.redirect(new URL('/player', request.url));
+     }
   }
 
   // Token is valid, allow access
