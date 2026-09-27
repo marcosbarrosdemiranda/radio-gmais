@@ -12,6 +12,7 @@ interface ProgramacaoSlot {
   category: string;
   count: number;
   mode: PlaybackMode;
+  interval?: number;
 }
 
 export default function ProgramacaoPage() {
@@ -120,7 +121,8 @@ export default function ProgramacaoPage() {
       type,
       category: defaultCat,
       count: 1,
-      mode: type === 'chamadas' ? 'sequencial' : 'aleatorio'
+      mode: type === 'chamadas' ? 'sequencial' : 'aleatorio',
+      interval: type === 'chamadas' ? 15 : 0
     }]);
   };
 
@@ -270,8 +272,18 @@ export default function ProgramacaoPage() {
                       type="number"
                       value={slot.count}
                       onChange={(e) => updateSlot(slot.id, 'count', parseInt(e.target.value))}
-                      className="w-12 text-sm bg-transparent outline-none text-center"
+                      className="w-10 text-sm bg-transparent outline-none text-center"
+                      title="Qtd"
                     />
+                    {slot.type === 'chamadas' && (
+                        <input
+                            type="number"
+                            value={slot.interval || 0}
+                            onChange={(e) => updateSlot(slot.id, 'interval', parseInt(e.target.value))}
+                            className="w-12 text-sm bg-transparent outline-none text-center border-l border-neutral-700"
+                            title="Intervalo (min)"
+                        />
+                    )}
                     <button onClick={() => removeSlot(slot.id)} className="text-red-500"><Trash2 size={16} /></button>
                   </div>
                 ))}
