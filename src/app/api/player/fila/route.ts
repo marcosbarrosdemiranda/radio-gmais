@@ -39,6 +39,13 @@ export async function GET() {
 
     // Se não há grade, retornamos um indicador específico
     if (!gradeAtiva) {
+      // MODO FILIAL: Tenta carregar músicas aleatórias do banco local como fallback
+      const musicasFallback = db.prepare('SELECT id, titulo, artista, arquivo_url, duracao FROM musicas ORDER BY RANDOM() LIMIT ?').all(limit);
+
+      if (musicasFallback.length > 0) {
+        return NextResponse.json(musicasFallback);
+      }
+
       return NextResponse.json({
         noProgram: true,
         message: 'Nenhuma grade de programação ativa encontrada.'
