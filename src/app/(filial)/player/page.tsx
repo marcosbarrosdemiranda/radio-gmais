@@ -114,13 +114,28 @@ export default function PlayerPage() {
     }
   }, []);
 
-  // URL da filial que deve estar no ambiente/configuração
-  const FILIAL_ID = 'filial-01'; // TODO: Pegar de uma config ou URL
+  const [filialId, setFilialId] = useState<string | null>(null);
+  const [modo, setModo] = useState<'uniloja' | 'multi-filial'>('multi-filial');
 
   useEffect(() => {
+    fetch('/api/config/modo')
+      .then(res => res.json())
+      .then(data => setModo(data.modo));
+
+    // TODO: pegar filial ID da URL ou localStorage
+    setFilialId('filial-01');
+  }, []);
+
+  useEffect(() => {
+    if (!filialId && modo === 'multi-filial') return;
+
+    const endpoint = modo === 'uniloja'
+        ? '/api/uniloja/check-comando'
+        : `/api/filial/check-comando?filialId=${filialId}`;
+
     const interval = setInterval(async () => {
         try {
-            const res = await fetch(`/api/filial/check-comando?filialId=${FILIAL_ID}`);
+            const res = await fetch(endpoint);
             const data = await res.json();
 
             if (data.comando) {
