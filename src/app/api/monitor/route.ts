@@ -1,30 +1,32 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { sendWebhook } from '@/lib/system-monitor';
 
-// Endpoint para as Filiais reportarem status para a Matriz
+// Endpoint para reportar status (Filiais ou Matriz)
 export async function POST(request: Request) {
   try {
-    const { filialId, status, message } = await request.json();
+    const data = await request.json();
+    const { filialId, status, message } = data;
 
-    if (!filialId) {
-      return NextResponse.json({ error: 'Filial ID obrigatório' }, { status: 400 });
+    let payload;
+
+    if (filialId) {
+        // Atualiza status da filial no banco de dados
+        db.prepare('UPDATE filiais SET status = ?, ultima_sincronizacao = datetime("now") WHERE id = ?')
+          .run(status, filialId);
+
+        payload = { type: 'filial_update', filialId, status, message };
+    } else {
+        // Status enviado pela própria matriz (ex: healthcheck)
+        payload = { type: 'matriz_update', ...data };
     }
 
-    // Atualiza status da filial no banco de dados da Matriz
-    db.prepare('UPDATE filiais SET status = ?, ultima_sincronizacao = datetime("now") WHERE id = ?')
-      .run(status, filialId);
-
-    // Aqui seria onde integrariamos com o Webhook do Portal-GLPI
-    console.log(`[Monitoramento] Filial ${filialId}: ${status} - ${message}`);
-
-    // Exemplo de integração (simulada)
-    // await fetch('https://portal-glpi.exemplo.com/webhook', {
-    //    method: 'POST',
-    //    body: JSON.stringify({ filialId, status, message })
-    // }).catch(console.error);
+    // Dispara webhook para o Portal-GLPI
+    await sendWebhook(payload);
 
     return NextResponse.json({ success: true });
   } catch (error) {
+    console.error('[Monitoramento] Erro:', error);
     return NextResponse.json({ error: 'Erro ao processar monitoramento' }, { status: 500 });
   }
 }
