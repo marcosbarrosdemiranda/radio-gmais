@@ -114,11 +114,33 @@ export default function PlayerPage() {
     }
   }, []);
 
+  // URL da filial que deve estar no ambiente/configuração
+  const FILIAL_ID = 'filial-01'; // TODO: Pegar de uma config ou URL
+
   useEffect(() => {
-    fetchGradeAtiva();
-    reabastecerFila();
-    fetchChamadas();
-  }, [reabastecerFila]);
+    const interval = setInterval(async () => {
+        try {
+            const res = await fetch(`/api/filial/check-comando?filialId=${FILIAL_ID}`);
+            const data = await res.json();
+
+            if (data.comando) {
+                const { acao, valor } = data.comando;
+                console.log('Executando comando:', acao, valor);
+
+                if (acao === 'play') audioRef.current?.play().then(() => setIsPlaying(true));
+                if (acao === 'pause') { audioRef.current?.pause(); setIsPlaying(false); }
+                if (acao === 'volume' && audioRef.current) {
+                    setVolume(valor);
+                    audioRef.current.volume = valor / 100;
+                }
+            }
+        } catch (err) {
+            console.error('Erro ao verificar comando:', err);
+        }
+    }, 5000); // Polling a cada 5 segundos
+
+    return () => clearInterval(interval);
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
