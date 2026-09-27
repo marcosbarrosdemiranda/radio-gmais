@@ -10,20 +10,27 @@ db.exec(`
     id TEXT PRIMARY KEY,
     titulo TEXT NOT NULL,
     artista TEXT NOT NULL,
-    arquivo_local TEXT NOT NULL,
-    duracao REAL NOT NULL
+    album TEXT,
+    duracao REAL NOT NULL,
+    arquivo_url TEXT NOT NULL,
+    genero TEXT,
+    favorita INTEGER DEFAULT 0
   );
 
   -- Tabela de playlists locais
   CREATE TABLE IF NOT EXISTS playlists (
     id TEXT PRIMARY KEY,
-    nome TEXT NOT NULL
+    nome TEXT NOT NULL,
+    descricao TEXT,
+    intervalo_chamadas INTEGER DEFAULT 15,
+    ativa INTEGER DEFAULT 1
   );
 
   -- Mapeamento local
   CREATE TABLE IF NOT EXISTS playlist_musicas (
     playlist_id TEXT,
     musica_id TEXT,
+    ordem INTEGER,
     PRIMARY KEY (playlist_id, musica_id)
   );
 
