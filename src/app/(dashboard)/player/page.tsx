@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
+import { useState, useRef, useEffect, useCallback } from 'react';
 import { Play, Pause, Volume2, VolumeX, SkipForward, SkipBack, Radio, Repeat, Shuffle, Mic, Zap } from 'lucide-react';
 
 interface Track {
@@ -21,7 +21,17 @@ export default function PlayerPage() {
   const [queue, setQueue] = useState<Track[]>([]);
   const [activeProgram, setActiveProgram] = useState<any>(null);
   const [showChamada, setShowChamada] = useState(false);
+  const [noProgram, setNoProgram] = useState(false);
+
   const audioRef = useRef<HTMLAudioElement>(null);
+  // Refs para acessar state atualizado dentro de callbacks sem closure stale
+  const queueRef = useRef<Track[]>([]);
+  const currentTrackRef = useRef<Track | null>(null);
+  const isFetchingRef = useRef(false);
+
+  // Mantém os refs sincronizados com o state
+  useEffect(() => { queueRef.current = queue; }, [queue]);
+  useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
 
   const fetchGradeAtiva = async () => {
     try {
@@ -29,8 +39,10 @@ export default function PlayerPage() {
       if (res.ok) {
         const data = await res.json();
         setActiveProgram(data.grade);
+        setNoProgram(false);
       } else {
         setActiveProgram(null);
+        setNoProgram(true);
       }
     } catch (err) {
       console.error('Erro ao buscar grade ativa:', err);
@@ -38,82 +50,103 @@ export default function PlayerPage() {
     }
   };
 
-  useEffect(() => {
-    fetchGradeAtiva();
+  // Busca mais músicas e ADICIONA ao final da fila (não substitui)
+  const reabastecerFila = useCallback(async () => {
+    if (isFetchingRef.current) return;
+    isFetchingRef.current = true;
+    try {
+      const res = await fetch('/api/player/fila');
+      if (!res.ok) return;
+      const data = await res.json();
+
+      if (data.noProgram) {
+        setNoProgram(true);
+        setQueue([]);
+        setCurrentTrack(null);
+        return;
+      }
+
+      if (!Array.isArray(data) || data.length === 0) return;
+
+      setNoProgram(false);
+
+      // Se não tem música tocando, começa a tocar a primeira
+      if (!currentTrackRef.current) {
+        const [primeira, ...resto] = data;
+        setCurrentTrack(primeira);
+        currentTrackRef.current = primeira;
+        setQueue(resto);
+        queueRef.current = resto;
+        if (audioRef.current) {
+          audioRef.current.src = primeira.arquivo_url;
+          audioRef.current.load();
+          audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
+        }
+      } else {
+        // Já tem música tocando: só adiciona ao final da fila
+        setQueue(prev => {
+          const novaFila = [...prev, ...data];
+          queueRef.current = novaFila;
+          return novaFila;
+        });
+      }
+    } catch (err) {
+      console.error('Erro ao buscar fila:', err);
+    } finally {
+      isFetchingRef.current = false;
+    }
   }, []);
 
+  // Inicialização
+  useEffect(() => {
+    fetchGradeAtiva();
+    reabastecerFila();
+  }, [reabastecerFila]);
+
+  // Volume
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume / 100;
     }
   }, [volume, isMuted]);
 
-  const fetchFila = async () => {
-    try {
-      const res = await fetch('/api/player/fila');
-      if (res.ok) {
-        const data = await res.json();
+  const tocarProxima = useCallback(() => {
+    const filaAtual = queueRef.current;
 
-        if (data.noProgram) {
-            setQueue([]);
-            setCurrentTrack(null);
-            return;
-        }
-
-        setQueue(data);
-        if (!currentTrack && data.length > 0) {
-          const nextTrack = data[0];
-          setCurrentTrack(nextTrack);
-          setQueue(prev => prev.slice(1));
-          if (audioRef.current) {
-            audioRef.current.src = nextTrack.arquivo_url;
-            audioRef.current.load();
-            audioRef.current.play().then(() => setIsPlaying(true));
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Erro ao buscar fila:', err);
-    }
-  };
-
-  // Carrega a fila ao iniciar
-  useEffect(() => {
-    fetchGradeAtiva();
-    fetchFila();
-
-    // Polling a cada 10 segundos
-    const interval = setInterval(() => {
-        fetchGradeAtiva();
-        fetchFila();
-    }, 10000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const tocarProxima = () => {
-    if (queue.length === 0) {
-      fetchFila();
+    if (filaAtual.length === 0) {
+      // Fila vazia: busca mais e aguarda
+      reabastecerFila();
+      setCurrentTrack(null);
+      currentTrackRef.current = null;
+      setIsPlaying(false);
       return;
     }
 
-    const nextTrack = queue[0];
-    setCurrentTrack(nextTrack);
-    setQueue(prev => prev.slice(1));
+    const [proxima, ...resto] = filaAtual;
+    setCurrentTrack(proxima);
+    currentTrackRef.current = proxima;
+    setQueue(resto);
+    queueRef.current = resto;
 
     if (audioRef.current) {
-      audioRef.current.src = nextTrack.arquivo_url;
+      audioRef.current.src = proxima.arquivo_url;
       audioRef.current.load();
-      audioRef.current.play().then(() => setIsPlaying(true));
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
     }
-  };
+
+    // Se a fila ficou com menos de 3 músicas, reabastece em background
+    if (resto.length < 3) {
+      reabastecerFila();
+    }
+  }, [reabastecerFila]);
 
   const togglePlay = () => {
+    if (!audioRef.current) return;
     if (isPlaying) {
-      audioRef.current?.pause();
+      audioRef.current.pause();
       setIsPlaying(false);
     } else {
-      audioRef.current?.play().then(() => setIsPlaying(true));
+      audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
     }
   };
 
@@ -356,19 +389,23 @@ export default function PlayerPage() {
             style={{ background: '#1F2026', border: '1px solid #404048' }}
           >
             <h3 className="font-semibold mb-3">🎵 Fila de Reprodução</h3>
-            {queue.length === 0 ? (
+            {noProgram ? (
               <div className="text-center py-8">
                 <p style={{ color: '#71717a' }}>Nenhuma programação ativa</p>
                 <div className="mt-4">
-                    <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>Deseja configurar uma nova programação?</p>
-                    <a href="/programacao" className="text-sm font-bold" style={{ color: '#DB1931' }}>Ir para Cadastro de Programação</a>
+                  <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>Deseja configurar uma nova programação?</p>
+                  <a href="/programacao" className="text-sm font-bold" style={{ color: '#DB1931' }}>Ir para Cadastro de Programação</a>
                 </div>
+              </div>
+            ) : queue.length === 0 ? (
+              <div className="text-center py-8">
+                <p style={{ color: '#71717a' }}>Carregando fila...</p>
               </div>
             ) : (
               <div className="space-y-2">
                 {queue.map((track, index) => (
                   <div
-                    key={track.id}
+                    key={`${track.id}-${index}`}
                     className="flex items-center gap-3 p-2 rounded-lg"
                     style={{ background: '#282930' }}
                   >
