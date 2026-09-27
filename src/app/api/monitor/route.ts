@@ -17,6 +17,12 @@ export async function POST(request: Request) {
     // Aqui seria onde integrariamos com o Webhook do Portal-GLPI
     console.log(`[Monitoramento] Filial ${filialId}: ${status} - ${message}`);
 
+    // Exemplo de integração (simulada)
+    // await fetch('https://portal-glpi.exemplo.com/webhook', {
+    //    method: 'POST',
+    //    body: JSON.stringify({ filialId, status, message })
+    // }).catch(console.error);
+
     return NextResponse.json({ success: true });
   } catch (error) {
     return NextResponse.json({ error: 'Erro ao processar monitoramento' }, { status: 500 });

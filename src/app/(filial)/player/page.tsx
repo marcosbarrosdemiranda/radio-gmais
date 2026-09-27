@@ -139,8 +139,28 @@ export default function PlayerPage() {
         }
     }, 5000); // Polling a cada 5 segundos
 
-    return () => clearInterval(interval);
-  }, []);
+    // Polling para status (monitoramento)
+    const statusInterval = setInterval(async () => {
+        try {
+            await fetch('/api/monitor', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    filialId: FILIAL_ID,
+                    status: isPlaying ? 'online - tocando' : 'online - parado',
+                    message: currentTrack ? `Tocando: ${currentTrack.titulo}` : 'Sem música'
+                })
+            });
+        } catch (err) {
+            console.error('Erro ao enviar monitoramento:', err);
+        }
+    }, 30000); // Polling de status a cada 30 segundos
+
+    return () => {
+        clearInterval(interval);
+        clearInterval(statusInterval);
+    };
+  }, [isPlaying, currentTrack]);
 
   useEffect(() => {
     if (audioRef.current) {
