@@ -8,7 +8,7 @@ Este documento detalha o plano de refatoração para transformar a arquitetura d
 
 ## Etapa 2: Infraestrutura de Sincronização (Worker/API)
 - [x] Criar endpoint `api/sync/pull` na Matriz para empacotar configurações.
-- [ ] Implementar `SyncWorker` na Filial para consumo periódico dos dados da Matriz.
+- [x] Implementar `SyncWorker` na Filial para consumo periódico dos dados da Matriz.
 - [ ] Implementar download/cache local de conteúdos (áudios/playlists).
 
 ## Etapa 3: Isolamento de Funções e Modo Offline
