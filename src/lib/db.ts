@@ -130,6 +130,18 @@ db.exec(`
     configuracoes TEXT DEFAULT '{}',
     criado_em TEXT DEFAULT (datetime('now'))
   );
+
+  -- Tabela de filiais (estações/kiosks)
+  CREATE TABLE IF NOT EXISTS filiais (
+    id TEXT PRIMARY KEY,
+    loja_id TEXT NOT NULL,
+    nome TEXT NOT NULL,
+    token_acesso TEXT UNIQUE NOT NULL,
+    ultima_sincronizacao TEXT,
+    status TEXT DEFAULT 'offline', -- online, offline
+    criado_em TEXT DEFAULT (datetime('now')),
+    FOREIGN KEY (loja_id) REFERENCES lojas(id) ON DELETE CASCADE
+  );
 `);
 
 // Create default admin user if not exists

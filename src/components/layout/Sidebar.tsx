@@ -33,6 +33,7 @@ const menuItems = [
   { label: 'Histórico', href: '/historico', icon: History },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
   { label: 'Lojas', href: '/configuracoes/lojas', icon: Store },
+  { label: 'Filiais', href: '/filiais', icon: Store },
 ];
 
 export default function Sidebar() {
