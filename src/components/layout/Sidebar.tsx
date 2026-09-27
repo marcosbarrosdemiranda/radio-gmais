@@ -16,6 +16,7 @@ import {
   Calendar,
   Volume2,
   Folder,
+  Store,
 } from 'lucide-react';
 
 const menuItems = [
@@ -31,6 +32,7 @@ const menuItems = [
   { label: 'Eventos', href: '/eventos', icon: Calendar },
   { label: 'Histórico', href: '/historico', icon: History },
   { label: 'Configurações', href: '/configuracoes', icon: Settings },
+  { label: 'Lojas', href: '/configuracoes/lojas', icon: Store },
 ];
 
 export default function Sidebar() {
