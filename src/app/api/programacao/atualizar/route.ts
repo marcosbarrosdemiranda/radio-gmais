@@ -19,12 +19,12 @@ export async function POST(request: NextRequest) {
 
       // 3. Inserir slots novos
       const stmt = db.prepare(`
-        INSERT INTO programacao_slots (id, programacao_id, type, category, count, ordem, mode)
-        VALUES (?, ?, ?, ?, ?, ?, ?)
+        INSERT INTO programacao_slots (id, programacao_id, type, category, count, ordem, mode, interval)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
       `);
 
       slots.forEach((s: any, index: number) => {
-        stmt.run(crypto.randomUUID(), id, s.type, s.category, s.count, index, s.mode);
+        stmt.run(crypto.randomUUID(), id, s.type, s.category, s.count, index, s.mode, s.interval || 0);
       });
     })();
 
