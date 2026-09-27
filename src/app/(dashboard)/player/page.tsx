@@ -171,7 +171,7 @@ export default function PlayerPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-                tipo: 'musica',
+                tipo: (currentTrack as any).tipo || 'musica',
                 referencia_id: currentTrack.id,
                 titulo: currentTrack.titulo,
                 duracao: currentTrack.duracao
