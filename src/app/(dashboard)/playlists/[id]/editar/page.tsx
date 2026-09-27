@@ -158,6 +158,7 @@ export default function EditarPlaylistPage({ params }: { params: Promise<{ id: s
             />
             <div className="space-y-2 max-h-64 overflow-y-auto">
               {musicasDisponiveis
+                .filter(m => !musicas.find(musicaNaPlaylist => musicaNaPlaylist.id === m.id))
                 .filter(m => m.titulo.toLowerCase().includes(busca.toLowerCase()))
                 .map((musica) => (
                   <div key={musica.id} className="flex items-center gap-3 p-2 rounded-lg" style={{ background: '#282930' }}>

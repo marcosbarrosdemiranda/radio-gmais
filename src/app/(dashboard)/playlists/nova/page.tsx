@@ -172,6 +172,7 @@ export default function NovaPlaylistPage() {
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {musicasDisponiveis
+                  .filter(m => !musicas.find(musicaNaPlaylist => musicaNaPlaylist.id === m.id))
                   .filter(m => m.titulo.toLowerCase().includes(busca.toLowerCase()))
                   .map((musica) => (
                     <div
