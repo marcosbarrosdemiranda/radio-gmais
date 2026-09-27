@@ -20,19 +20,50 @@ export async function GET() {
     // 2. Busca todos os slots da grade
     const slots = db.prepare('SELECT * FROM programacao_slots WHERE programacao_id = ? ORDER BY ordem ASC').all(gradeAtiva.id);
 
-    // 3. Tenta encontrar músicas a partir do primeiro slot disponível que contenha músicas
+    // 3. Verificar agendas de chamadas (intervalo)
+    const chamadasSlot = slots.find((s: any) => s.type === 'chamadas');
+    if (chamadasSlot && chamadasSlot.interval > 0) {
+      const lastChamada = db.prepare("SELECT tocado_em FROM historico WHERE tipo = 'chamada' ORDER BY tocado_em DESC LIMIT 1").get() as any;
+
+      let shouldPlayChamada = false;
+      if (!lastChamada) {
+          shouldPlayChamada = true;
+      } else {
+          // SQL para calcular diferença em minutos
+          const diffResult = db.prepare('SELECT (julianday("now") - julianday(?)) * 1440 as diff').get(lastChamada.tocado_em) as any;
+          if (diffResult && diffResult.diff >= chamadasSlot.interval) {
+              shouldPlayChamada = true;
+          }
+      }
+
+      if (shouldPlayChamada) {
+           const chamada = db.prepare('SELECT id, titulo, audio_url as arquivo_url FROM chamadas WHERE ativa = 1 ORDER BY RANDOM() LIMIT 1').get() as any;
+           if (chamada) {
+               proximaMusicaList.push({
+                   ...chamada,
+                   artista: 'Spot',
+                   duracao: 0,
+                   tipo: 'chamada'
+               });
+           }
+      }
+    }
+
+    // 4. Tenta encontrar músicas a partir do primeiro slot disponível que contenha músicas
     for (const slot of slots) {
       if (slot.type === 'musicas') {
-        proximaMusicaList = db.prepare('SELECT id, titulo, artista, arquivo_url, duracao FROM musicas WHERE genero = ? ORDER BY RANDOM() LIMIT ?').all(slot.category, limit);
+        const musicas = db.prepare('SELECT id, titulo, artista, arquivo_url, duracao FROM musicas WHERE genero = ? ORDER BY RANDOM() LIMIT ?').all(slot.category, limit);
+        proximaMusicaList = [...proximaMusicaList, ...musicas];
         if (proximaMusicaList.length > 0) break;
       } else if (slot.type === 'playlist') {
-        proximaMusicaList = db.prepare(`
+        const musicas = db.prepare(`
             SELECT m.id, m.titulo, m.artista, m.arquivo_url, m.duracao
             FROM musicas m
             JOIN playlist_musicas pm ON m.id = pm.musica_id
             WHERE pm.playlist_id = ?
             ORDER BY RANDOM() LIMIT ?
         `).all(slot.category, limit);
+        proximaMusicaList = [...proximaMusicaList, ...musicas];
         if (proximaMusicaList.length > 0) break;
       }
     }
