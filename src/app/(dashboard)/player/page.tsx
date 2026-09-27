@@ -11,6 +11,12 @@ interface Track {
   duracao: number;
 }
 
+interface Chamada {
+  id: string;
+  titulo: string;
+  arquivo: string;
+}
+
 export default function PlayerPage() {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTrack, setCurrentTrack] = useState<Track | null>(null);
@@ -20,16 +26,16 @@ export default function PlayerPage() {
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
   const [activeProgram, setActiveProgram] = useState<any>(null);
-  const [showChamada, setShowChamada] = useState(false);
+  const [chamadas, setChamadas] = useState<Chamada[]>([]);
+  const [tocandoChamada, setTocandoChamada] = useState<string | null>(null);
   const [noProgram, setNoProgram] = useState(false);
 
   const audioRef = useRef<HTMLAudioElement>(null);
-  // Refs para acessar state atualizado dentro de callbacks sem closure stale
+  const chamadaRef = useRef<HTMLAudioElement>(null);
   const queueRef = useRef<Track[]>([]);
   const currentTrackRef = useRef<Track | null>(null);
   const isFetchingRef = useRef(false);
 
-  // Mantém os refs sincronizados com o state
   useEffect(() => { queueRef.current = queue; }, [queue]);
   useEffect(() => { currentTrackRef.current = currentTrack; }, [currentTrack]);
 
@@ -50,7 +56,18 @@ export default function PlayerPage() {
     }
   };
 
-  // Busca mais músicas e ADICIONA ao final da fila (não substitui)
+  const fetchChamadas = async () => {
+    try {
+      const res = await fetch('/api/chamadas/instantaneas');
+      if (res.ok) {
+        const data = await res.json();
+        setChamadas(data);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar chamadas:', err);
+    }
+  };
+
   const reabastecerFila = useCallback(async () => {
     if (isFetchingRef.current) return;
     isFetchingRef.current = true;
@@ -70,7 +87,6 @@ export default function PlayerPage() {
 
       setNoProgram(false);
 
-      // Se não tem música tocando, começa a tocar a primeira
       if (!currentTrackRef.current) {
         const [primeira, ...resto] = data;
         setCurrentTrack(primeira);
@@ -83,7 +99,6 @@ export default function PlayerPage() {
           audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
         }
       } else {
-        // Já tem música tocando: só adiciona ao final da fila
         setQueue(prev => {
           const novaFila = [...prev, ...data];
           queueRef.current = novaFila;
@@ -97,16 +112,18 @@ export default function PlayerPage() {
     }
   }, []);
 
-  // Inicialização
   useEffect(() => {
     fetchGradeAtiva();
     reabastecerFila();
+    fetchChamadas();
   }, [reabastecerFila]);
 
-  // Volume
   useEffect(() => {
     if (audioRef.current) {
       audioRef.current.volume = isMuted ? 0 : volume / 100;
+    }
+    if (chamadaRef.current) {
+      chamadaRef.current.volume = isMuted ? 0 : volume / 100;
     }
   }, [volume, isMuted]);
 
@@ -114,7 +131,6 @@ export default function PlayerPage() {
     const filaAtual = queueRef.current;
 
     if (filaAtual.length === 0) {
-      // Fila vazia: busca mais e aguarda
       reabastecerFila();
       setCurrentTrack(null);
       currentTrackRef.current = null;
@@ -134,7 +150,6 @@ export default function PlayerPage() {
       audioRef.current.play().then(() => setIsPlaying(true)).catch(console.error);
     }
 
-    // Se a fila ficou com menos de 3 músicas, reabastece em background
     if (resto.length < 3) {
       reabastecerFila();
     }
@@ -176,9 +191,24 @@ export default function PlayerPage() {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  const triggerChamada = (tipo: string) => {
-    setShowChamada(true);
-    setTimeout(() => setShowChamada(false), 5000);
+  const playChamada = async (chamada: Chamada) => {
+      if (!chamadaRef.current || !audioRef.current) return;
+
+      setTocandoChamada(chamada.id);
+
+      // Baixa volume da música
+      const musicVolume = audioRef.current.volume;
+      audioRef.current.volume = musicVolume * 0.2;
+
+      chamadaRef.current.src = chamada.arquivo;
+      chamadaRef.current.load();
+      await chamadaRef.current.play();
+
+      chamadaRef.current.onended = () => {
+          // Restaura volume
+          if (audioRef.current) audioRef.current.volume = musicVolume;
+          setTocandoChamada(null);
+      };
   };
 
   return (
@@ -188,6 +218,7 @@ export default function PlayerPage() {
         onTimeUpdate={handleTimeUpdate}
         onEnded={handleEnded}
       />
+      <audio ref={chamadaRef} />
 
       {/* Header */}
       <div className="flex items-center justify-between">
@@ -201,45 +232,16 @@ export default function PlayerPage() {
         <div className="flex items-center gap-2">
           <div
             className="w-3 h-3 rounded-full animate-pulse"
-            style={{ background: isPlaying ? '#22c55e' : '#ef4444' }}
+            style={{ background: isPlaying || tocandoChamada ? '#22c55e' : '#ef4444' }}
           />
           <span className="text-sm" style={{ color: '#9ca3af' }}>
-            {isPlaying ? 'Ao Vivo' : 'Parado'}
+            {isPlaying || tocandoChamada ? 'Ao Vivo' : 'Parado'}
           </span>
         </div>
       </div>
 
-      {/* Chamada Instantânea Overlay */}
-      {showChamada && (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(0, 0, 0, 0.9)' }}
-        >
-          <div className="text-center">
-            <Mic size={64} style={{ color: '#DB1931' }} className="mx-auto mb-4 animate-pulse" />
-            <h2 className="text-3xl font-bold mb-2">📢 Chamada Instantânea</h2>
-            <p className="text-xl" style={{ color: '#9ca3af' }}>Tocando agora...</p>
-            <div className="flex gap-1 justify-center mt-4">
-              {[...Array(5)].map((_, i) => (
-                <div
-                  key={i}
-                  className="w-2 rounded-full animate-pulse"
-                  style={{
-                    background: '#DB1931',
-                    height: `${20 + Math.random() * 20}px`,
-                    animationDelay: `${i * 0.1}s`
-                  }}
-                />
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
-
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Player Principal */}
         <div className="lg:col-span-2 space-y-4">
-          {/* Now Playing */}
           <div
             className="rounded-xl p-6"
             style={{ background: '#1F2026', border: '1px solid #404048' }}
@@ -254,11 +256,11 @@ export default function PlayerPage() {
               <div>
                 <p className="text-sm" style={{ color: '#9ca3af' }}>Tocando Agora</p>
                 <h2 className="text-xl font-bold">{currentTrack?.titulo || 'Nenhuma música selecionada'}</h2>
-                <p style={{ color: '#9ca3af' }}>{currentTrack?.artista || 'Faça upload de músicas para começar'}</p>
+                <p style={{ color: '#9ca3af' }}>{currentTrack?.artista || '...'}</p>
+                {tocandoChamada && <p className="text-sm font-bold" style={{ color: '#f59e0b' }}>📢 Tocando Chamada!</p>}
               </div>
             </div>
 
-            {/* Progress Bar */}
             <div className="space-y-2">
               <input
                 type="range"
@@ -275,77 +277,21 @@ export default function PlayerPage() {
               </div>
             </div>
 
-            {/* Controls */}
             <div className="flex items-center justify-center gap-4 mt-4">
-              <button
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: '#9ca3af' }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-              >
-                <Shuffle size={20} />
-              </button>
-              <button
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: '#9ca3af' }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-              >
-                <SkipBack size={20} />
-              </button>
-              <button
-                onClick={togglePlay}
-                className="w-16 h-16 rounded-full flex items-center justify-center transition-colors"
-                style={{ background: '#DB1931', color: '#fff' }}
-                onMouseOver={(e) => e.currentTarget.style.background = '#B21125'}
-                onMouseOut={(e) => e.currentTarget.style.background = '#DB1931'}
-              >
+              <button onClick={togglePlay} className="w-16 h-16 rounded-full flex items-center justify-center transition-colors" style={{ background: '#DB1931', color: '#fff' }}>
                 {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
               </button>
-              <button
-                onClick={tocarProxima}
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: '#9ca3af' }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-              >
-                <SkipForward size={20} />
-              </button>
-              <button
-                className="p-2 rounded-lg transition-colors"
-                style={{ color: '#9ca3af' }}
-                onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
-                onMouseOut={(e) => e.currentTarget.style.color = '#9ca3af'}
-              >
-                <Repeat size={20} />
-              </button>
+              <button onClick={tocarProxima} className="p-2 text-gray-400 hover:text-white"><SkipForward size={20} /></button>
             </div>
 
-            {/* Volume */}
             <div className="flex items-center gap-3 mt-6">
-              <button
-                onClick={() => setIsMuted(!isMuted)}
-                style={{ color: '#9ca3af' }}
-              >
-                {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
-              </button>
-              <input
-                type="range"
-                min="0"
-                max="100"
-                value={isMuted ? 0 : volume}
-                onChange={(e) => {
-                  setVolume(parseInt(e.target.value));
-                  setIsMuted(false);
-                }}
-                className="flex-1 h-2 rounded-full appearance-none cursor-pointer"
-                style={{ background: `linear-gradient(to right, #DB1931 ${volume}%, #404048 ${volume}%)` }}
-              />
-              <span className="text-sm w-10 text-right" style={{ color: '#9ca3af' }}>{volume}%</span>
+                <button onClick={() => setIsMuted(!isMuted)} style={{ color: '#9ca3af' }}>
+                  {isMuted ? <VolumeX size={20} /> : <Volume2 size={20} />}
+                </button>
+                <input type="range" min="0" max="100" value={isMuted ? 0 : volume} onChange={(e) => {setVolume(parseInt(e.target.value)); setIsMuted(false); }} className="flex-1 h-2 rounded-full appearance-none cursor-pointer" style={{ background: `linear-gradient(to right, #DB1931 ${volume}%, #404048 ${volume}%)` }} />
             </div>
           </div>
 
-          {/* Quick Chamadas */}
           <div
             className="rounded-xl p-4"
             style={{ background: '#1F2026', border: '1px solid #404048' }}
@@ -355,93 +301,28 @@ export default function PlayerPage() {
               Chamadas Rápidas
             </h3>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
-              {[
-                'Bom Dia',
-                'Boa Tarde',
-                'Pão Quentinho',
-                'Encerramento'
-              ].map((chamada) => (
+              {chamadas.map((chamada) => (
                 <button
-                  key={chamada}
-                  onClick={() => triggerChamada(chamada)}
+                  key={chamada.id}
+                  onClick={() => playChamada(chamada)}
                   className="px-3 py-2 rounded-lg text-sm transition-colors"
-                  style={{ background: '#404048', color: '#fff' }}
-                  onMouseOver={(e) => {
-                    e.currentTarget.style.background = '#f59e0b';
-                    e.currentTarget.style.color = '#000';
-                  }}
-                  onMouseOut={(e) => {
-                    e.currentTarget.style.background = '#404048';
-                    e.currentTarget.style.color = '#fff';
-                  }}
+                  style={{ background: tocandoChamada === chamada.id ? '#f59e0b' : '#404048', color: tocandoChamada === chamada.id ? '#000' : '#fff' }}
                 >
-                  {chamada}
+                  {chamada.titulo}
                 </button>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Sidebar - Fila de Reprodução */}
         <div className="space-y-4">
-          <div
-            className="rounded-xl p-4"
-            style={{ background: '#1F2026', border: '1px solid #404048' }}
-          >
+          <div className="rounded-xl p-4" style={{ background: '#1F2026', border: '1px solid #404048' }}>
             <h3 className="font-semibold mb-3">🎵 Fila de Reprodução</h3>
-            {noProgram ? (
-              <div className="text-center py-8">
-                <p style={{ color: '#71717a' }}>Nenhuma programação ativa</p>
-                <div className="mt-4">
-                  <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>Deseja configurar uma nova programação?</p>
-                  <a href="/programacao" className="text-sm font-bold" style={{ color: '#DB1931' }}>Ir para Cadastro de Programação</a>
-                </div>
-              </div>
-            ) : queue.length === 0 ? (
-              <div className="text-center py-8">
-                <p style={{ color: '#71717a' }}>Carregando fila...</p>
-              </div>
-            ) : (
+            {noProgram ? (<p>Nenhuma programação</p>) : queue.length === 0 ? <p>Carregando...</p> : (
               <div className="space-y-2">
-                {queue.map((track, index) => (
-                  <div
-                    key={`${track.id}-${index}`}
-                    className="flex items-center gap-3 p-2 rounded-lg"
-                    style={{ background: '#282930' }}
-                  >
-                    <span style={{ color: '#71717a' }}>{index + 1}</span>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium truncate">{track.titulo}</p>
-                      <p className="text-xs truncate" style={{ color: '#9ca3af' }}>{track.artista}</p>
-                    </div>
-                  </div>
-                ))}
+                {queue.map((t, i) => <div key={i} className="text-sm truncate">{t.titulo}</div>)}
               </div>
             )}
-          </div>
-
-          {/* Status */}
-          <div
-            className="rounded-xl p-4"
-            style={{ background: '#1F2026', border: '1px solid #404048' }}
-          >
-            <h3 className="font-semibold mb-3">📊 Status</h3>
-            <div className="space-y-2 text-sm">
-              <div className="flex justify-between">
-                <span style={{ color: '#9ca3af' }}>Status:</span>
-                <span style={{ color: isPlaying ? '#22c55e' : '#ef4444' }}>
-                  {isPlaying ? 'Tocando' : 'Parado'}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span style={{ color: '#9ca3af' }}>Na fila:</span>
-                <span>{queue.length} músicas</span>
-              </div>
-              <div className="flex justify-between">
-                <span style={{ color: '#9ca3af' }}>Volume:</span>
-                <span>{isMuted ? 'Mudo' : `${volume}%`}</span>
-              </div>
-            </div>
           </div>
         </div>
       </div>
