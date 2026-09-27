@@ -1,8 +1,39 @@
 import { NextResponse } from 'next/server';
 import db from '@/lib/db';
+import { getCurrentUser } from '@/lib/auth';
 
 export async function GET() {
   try {
+    // 0. Verificar horário de funcionamento da loja do usuário
+    const user = await getCurrentUser();
+    if (user && user.lojaId) {
+        const loja = db.prepare('SELECT configuracoes FROM lojas WHERE id = ?').get(user.lojaId) as any;
+        if (loja && loja.configuracoes) {
+            const config = JSON.parse(loja.configuracoes);
+            if (config.horarios) {
+                const agora = new Date();
+                const diaSemana = agora.toLocaleString('pt-BR', { weekday: 'long' }).toLowerCase();
+                const horario = config.horarios[diaSemana]; // Ex: { abertura: '06:30', fechamento: '20:00' }
+
+                if (horario && horario.abertura && horario.fechamento) {
+                    const horaAtual = agora.getHours() * 60 + agora.getMinutes();
+                    const [aberturaH, aberturaM] = horario.abertura.split(':').map(Number);
+                    const [fechamentoH, fechamentoM] = horario.fechamento.split(':').map(Number);
+
+                    const minAbertura = aberturaH * 60 + aberturaM;
+                    const minFechamento = fechamentoH * 60 + fechamentoM;
+
+                    if (horaAtual < minAbertura || horaAtual >= minFechamento) {
+                       return NextResponse.json({
+                         noProgram: true,
+                         message: 'Fora do horário de funcionamento.'
+                       }, { status: 200 });
+                    }
+                }
+            }
+        }
+    }
+
     // 1. Identificar a programação ativa
     const gradeAtiva = db.prepare('SELECT * FROM programacao WHERE ativa = 1 LIMIT 1').get();
 
