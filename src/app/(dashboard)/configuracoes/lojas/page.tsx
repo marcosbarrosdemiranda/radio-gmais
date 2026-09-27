@@ -14,9 +14,33 @@ export default function LojasConfigPage() {
       domingo: { abertura: '00:00', fechamento: '00:00' },
   });
 
+  useEffect(() => {
+    fetch('/api/lojas')
+      .then(res => res.json())
+      .then(data => {
+        if (data && Object.keys(data).length > 0) {
+            setHorarios(data);
+        }
+      })
+      .catch(console.error);
+  }, []);
+
   const handleSave = async () => {
-    // API call placeholder for saving config
-    alert('Horários salvos!');
+    try {
+      const res = await fetch('/api/lojas', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ configuracoes: horarios })
+      });
+      if (res.ok) {
+        alert('Horários salvos com sucesso!');
+      } else {
+        alert('Erro ao salvar horários.');
+      }
+    } catch (err) {
+      console.error('Erro:', err);
+      alert('Erro ao salvar.');
+    }
   };
 
   return (
