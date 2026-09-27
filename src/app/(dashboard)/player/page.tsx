@@ -166,6 +166,18 @@ export default function PlayerPage() {
   };
 
   const handleEnded = () => {
+    if (currentTrack) {
+        fetch('/api/historico', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                tipo: 'musica',
+                referencia_id: currentTrack.id,
+                titulo: currentTrack.titulo,
+                duracao: currentTrack.duracao
+            })
+        }).catch(console.error);
+    }
     setIsPlaying(false);
     tocarProxima();
   };
