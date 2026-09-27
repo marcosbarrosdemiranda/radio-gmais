@@ -12,7 +12,7 @@ Este documento detalha o plano de refatoração para transformar a arquitetura d
 - [x] Implementar download/cache local de conteúdos (áudios/playlists).
 
 ## Etapa 3: Isolamento de Funções e Modo Offline
-- [ ] Configurar player da Filial para ler exclusivamente do `db-filial`.
+- [x] Configurar player da Filial para ler exclusivamente do `db-filial`.
 - [ ] Adicionar suporte a "modo offline" com fallback de segurança.
 - [ ] Impedir acesso administrativo via rotas da Filial.
 
@@ -22,5 +22,5 @@ Este documento detalha o plano de refatoração para transformar a arquitetura d
 - [ ] Merge final e validação com o modo Uniloja.
 
 ---
-*Progresso: 2/4 etapas concluídas (Etapas 1 e 2 finalizadas).*
+*Progresso: 2.5/4 etapas concluídas.*
 Co-Authored-By: Claude Code <noreply@anthropic.com>
