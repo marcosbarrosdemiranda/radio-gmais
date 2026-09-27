@@ -1,7 +1,7 @@
 'use client';
 
-import { useState } from 'react';
-import { Plus, GripVertical, Settings, Music, Mic, Folder, Trash2, Save, PlayCircle, Shuffle, ListOrdered } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Plus, GripVertical, Settings, Music, Mic, Folder, Trash2, Save, PlayCircle, Shuffle, ListOrdered, ListMusic, CheckCircle } from 'lucide-react';
 
 type SlotType = 'musicas' | 'chamadas' | 'jingles' | 'playlist';
 type PlaybackMode = 'aleatorio' | 'sequencial';
@@ -9,27 +9,101 @@ type PlaybackMode = 'aleatorio' | 'sequencial';
 interface ProgramacaoSlot {
   id: string;
   type: SlotType;
-  category: string; // Pode ser o ID da playlist
+  category: string;
   count: number;
   mode: PlaybackMode;
 }
 
 export default function ProgramacaoPage() {
   const [nome, setNome] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [programacoes, setProgramacoes] = useState<any[]>([]);
   const [playlists, setPlaylists] = useState<any[]>([]);
-  const [slots, setSlots] = useState<ProgramacaoSlot[]>([
-    { id: '1', type: 'musicas', category: 'sertanejo_novo', count: 2, mode: 'aleatorio' },
-    { id: '2', type: 'jingles', category: 'transicao', count: 1, mode: 'aleatorio' },
-    { id: '3', type: 'musicas', category: 'pop', count: 1, mode: 'aleatorio' },
-    { id: '4', type: 'chamadas', category: 'ofertas', count: 1, mode: 'sequencial' }
-  ]);
+  const [slots, setSlots] = useState<ProgramacaoSlot[]>([]);
 
   useEffect(() => {
     fetch('/api/playlists')
       .then(res => res.json())
       .then(data => setPlaylists(data))
       .catch(err => console.error('Erro ao buscar playlists:', err));
+
+    fetch('/api/programacao/lista')
+      .then(res => res.json())
+      .then(data => setProgramacoes(data))
+      .catch(err => console.error('Erro ao buscar programações:', err));
   }, []);
+
+  const iniciarEdicao = (p: any) => {
+    setEditingId(p.id);
+    setNome(p.nome);
+    fetch(`/api/programacao/slots?id=${p.id}`)
+      .then(res => res.json())
+      .then(data => setSlots(data))
+      .catch(err => console.error('Erro ao buscar slots:', err));
+  };
+
+  const resetForm = () => {
+    setEditingId(null);
+    setNome('');
+    setSlots([]);
+  };
+
+  const ativarProgramacao = async (id: string) => {
+    try {
+      const response = await fetch('/api/programacao/ativar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (response.ok) {
+        alert('Programação ativada!');
+        setProgramacoes(prev => prev.map(p => ({ ...p, ativa: p.id === id ? 1 : 0 })));
+      } else {
+        alert('Erro ao ativar programação');
+      }
+    } catch (error) {
+      console.error('Erro ao ativar:', error);
+    }
+  };
+
+  const deletarProgramacao = async (id: string) => {
+    try {
+      const response = await fetch('/api/programacao/deletar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (response.ok) {
+        alert('Programação deletada!');
+        setProgramacoes(prev => prev.filter(p => p.id !== id));
+      } else {
+        alert('Erro ao deletar programação');
+      }
+    } catch (error) {
+      console.error('Erro ao deletar:', error);
+    }
+  };
+
+  const desativarProgramacao = async (id: string) => {
+    try {
+      const response = await fetch('/api/programacao/desativar', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id }),
+      });
+
+      if (response.ok) {
+        alert('Programação desativada!');
+        setProgramacoes(prev => prev.map(p => ({ ...p, ativa: p.id === id ? 0 : p.ativa })));
+      } else {
+        alert('Erro ao desativar programação');
+      }
+    } catch (error) {
+      console.error('Erro ao desativar:', error);
+    }
+  };
 
   const categoriasMusica = ['Geral', 'Pop', 'Sertanejo Novo', 'Flashback', 'Modão'];
   const categoriasChamada = ['Ofertas', 'Institucional', 'Avisos Internos'];
@@ -48,6 +122,14 @@ export default function ProgramacaoPage() {
       count: 1,
       mode: type === 'chamadas' ? 'sequencial' : 'aleatorio'
     }]);
+  };
+
+  const updateSlot = (id: string, field: keyof ProgramacaoSlot, value: any) => {
+    setSlots(slots.map(slot => slot.id === id ? { ...slot, [field]: value } : slot));
+  };
+
+  const removeSlot = (id: string) => {
+    setSlots(slots.filter(slot => slot.id !== id));
   };
 
   const getTypeIcon = (type: SlotType) => {
@@ -75,21 +157,28 @@ export default function ProgramacaoPage() {
       return;
     }
 
+    const endpoint = editingId ? '/api/programacao/atualizar' : '/api/programacao';
+    const body = editingId ? { id: editingId, nome, slots } : { nome, slots };
+
     try {
-      const response = await fetch('/api/programacao', {
+      const response = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nome, slots }),
+        body: JSON.stringify(body),
       });
 
       if (response.ok) {
-        alert('Programação salva com sucesso!');
+        alert(editingId ? 'Programação atualizada com sucesso!' : 'Programação salva com sucesso!');
+        resetForm();
+        // Refresh list
+        fetch('/api/programacao/lista').then(res => res.json()).then(setProgramacoes);
+        // Refresh player status (if applicable - here we just update state)
       } else {
-        alert('Erro ao salvar programação');
+        alert('Erro ao salvar/atualizar programação');
       }
     } catch (error) {
-      console.error('Erro ao salvar programação:', error);
-      alert('Erro ao salvar programação');
+      console.error('Erro ao salvar/atualizar programação:', error);
+      alert('Erro ao salvar/atualizar programação');
     }
   };
 
@@ -99,168 +188,104 @@ export default function ProgramacaoPage() {
         <div>
           <h1 className="text-2xl font-bold flex items-center gap-2">
             <PlayCircle size={28} style={{ color: '#DB1931' }} />
-            Grade de Programação (Rotatividade)
+            Grade de Programação
           </h1>
-          <p style={{ color: '#9ca3af' }}>Monte o esqueleto/fórmula do que a rádio vai tocar em looping</p>
+          <p style={{ color: '#9ca3af' }}>Gerencie suas grades e defina qual está ativa na rádio</p>
         </div>
-
-        <button
-          onClick={salvarProgramacao}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-colors shadow-lg"
-          style={{ background: '#DB1931', color: '#fff' }}
-        >
-          <Save size={20} /> Salvar Grade
-        </button>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Lista de Grades */}
+        <div className="rounded-xl p-5" style={{ background: '#1F2026', border: '1px solid #404048' }}>
+            <h2 className="font-semibold mb-4 text-lg">Grades Salvas</h2>
+            <div className="space-y-3">
+                {programacoes.map(p => (
+                    <div key={p.id} className="flex items-center justify-between p-3 rounded-lg" style={{ background: '#16171B', border: '1px solid #282930' }}>
+                        <div>
+                            <p className="font-semibold">{p.nome}</p>
+                            <p className="text-xs" style={{ color: p.ativa ? '#22c55e' : '#9ca3af' }}>{p.ativa ? 'Ativa' : 'Inativa'}</p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {p.ativa ? (
+                              <button onClick={() => desativarProgramacao(p.id)} className="text-sm px-3 py-1 rounded bg-neutral-700 hover:bg-neutral-600 transition">
+                                  Desativar
+                              </button>
+                          ) : (
+                              <button onClick={() => ativarProgramacao(p.id)} className="text-sm px-3 py-1 rounded bg-neutral-700 hover:bg-neutral-600 transition">
+                                  Ativar
+                              </button>
+                          )}
+                          <button onClick={() => iniciarEdicao(p)} className="text-sm px-3 py-1 rounded bg-neutral-700 hover:bg-neutral-600 transition">
+                             Editar
+                          </button>
+                          <button onClick={() => deletarProgramacao(p.id)} className="text-sm px-3 py-1 rounded bg-red-900 hover:bg-red-800 transition">
+                             <Trash2 size={16} />
+                          </button>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
 
-        {/* Painel Esquerdo: Info e Adição */}
-        <div className="space-y-4 lg:col-span-1">
+        {/* Criação de Nova Grade */}
+        <div className="space-y-4">
           <div className="rounded-xl p-5" style={{ background: '#1F2026', border: '1px solid #404048' }}>
-            <h2 className="font-semibold mb-4">Configuração Básica</h2>
-            <div>
-              <label className="block text-sm font-medium mb-1" style={{ color: '#9ca3af' }}>Nome da Grade</label>
-              <input
+            <div className="flex justify-between items-center mb-4">
+              <h2 className="font-semibold">{editingId ? 'Editar Grade' : 'Nova Grade'}</h2>
+              {editingId && (
+                <button onClick={resetForm} className="text-sm underline">Cancelar</button>
+              )}
+            </div>
+            <input
                 type="text"
                 value={nome}
                 onChange={(e) => setNome(e.target.value)}
-                placeholder="Ex: Padrão Manhã (Promoções)"
-                className="w-full rounded-lg px-4 py-2 outline-none"
+                placeholder="Nome da grade..."
+                className="w-full rounded-lg px-4 py-2 outline-none mb-4"
                 style={{ background: '#16171B', border: '1px solid #404048', color: '#fff' }}
-              />
-            </div>
-          </div>
-
-          <div className="rounded-xl p-5" style={{ background: '#1F2026', border: '1px solid #404048' }}>
-            <h2 className="font-semibold mb-4">Adicionar Bloco</h2>
-            <div className="space-y-2">
-              <button onClick={() => addSlot('musicas')} className="w-full flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ border: '1px solid rgba(219, 25, 49, 0.3)' }}>
-                <span className="flex items-center gap-2 font-medium"><Music size={18} style={{ color: '#DB1931' }}/> Músicas</span>
-                <Plus size={18} style={{ color: '#DB1931' }} />
-              </button>
-
-              <button onClick={() => addSlot('chamadas')} className="w-full flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ border: '1px solid rgba(245, 158, 11, 0.3)' }}>
-                <span className="flex items-center gap-2 font-medium"><Mic size={18} style={{ color: '#f59e0b' }}/> Chamadas / Ofertas</span>
-                <Plus size={18} style={{ color: '#f59e0b' }} />
-              </button>
-
-              <button onClick={() => addSlot('jingles')} className="w-full flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ border: '1px solid rgba(59, 130, 246, 0.3)' }}>
-                <span className="flex items-center gap-2 font-medium"><Folder size={18} style={{ color: '#3b82f6' }}/> Jingles de Transição</span>
-                <Plus size={18} style={{ color: '#3b82f6' }} />
-              </button>
-
-              <button onClick={() => addSlot('playlist')} className="w-full flex items-center justify-between p-3 rounded-lg transition-colors hover:opacity-80" style={{ border: '1px solid rgba(34, 197, 94, 0.3)' }}>
-                <span className="flex items-center gap-2 font-medium"><ListMusic size={18} style={{ color: '#22c55e' }}/> Playlist Pré-Definida</span>
-                <Plus size={18} style={{ color: '#22c55e' }} />
-              </button>
-            </div>
-          </div>
-
-
-          <div className="rounded-xl p-4 text-sm" style={{ background: 'rgba(219, 25, 49, 0.05)', border: '1px solid rgba(219, 25, 49, 0.2)' }}>
-            <p style={{ color: '#DB1931' }} className="font-semibold mb-1">Como Funciona?</p>
-            <p style={{ color: '#9ca3af' }}>Essa é a "receita". A rádio executará os blocos de cima para baixo. Ao terminar, ela volta pro início gerando um loop musical infinito e sem repetições iguais.</p>
-          </div>
-        </div>
-
-        {/* Parede Central: Sequenciador Visual */}
-        <div className="lg:col-span-2">
-          <div className="rounded-xl p-5 min-h-[600px]" style={{ background: '#16171B', border: '1px dashed #404048' }}>
-            <div className="flex items-center justify-between mb-6">
-              <h2 className="font-semibold text-lg flex items-center gap-2"><ListOrdered size={20}/> Estrutura do Looping (Padrão)</h2>
-              <span className="text-sm px-3 py-1 rounded-full" style={{ background: '#1F2026', color: '#9ca3af' }}>
-                {slots.reduce((acc, curr) => acc + curr.count, 0)} itens por ciclo
-              </span>
-            </div>
-
-            {slots.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 text-center">
-                <div className="w-20 h-20 rounded-full flex items-center justify-center mb-4" style={{ background: '#1F2026' }}>
-                  <Settings size={32} style={{ color: '#404048' }} />
+            />
+            {/* Seção de Configuração de Slots */}
+            <div className="rounded-xl p-5" style={{ background: '#1F2026', border: '1px solid #404048' }}>
+              <div className="flex justify-between items-center mb-4">
+                <h2 className="font-semibold">Configuração (Slots)</h2>
+                <div className="flex gap-2">
+                    <button onClick={() => addSlot('musicas')} className="p-1.5 rounded hover:bg-neutral-700" title="Add Música"><Music size={18} /></button>
+                    <button onClick={() => addSlot('chamadas')} className="p-1.5 rounded hover:bg-neutral-700" title="Add Chamada"><Mic size={18} /></button>
+                    <button onClick={() => addSlot('jingles')} className="p-1.5 rounded hover:bg-neutral-700" title="Add Jingle"><Folder size={18} /></button>
+                    <button onClick={() => addSlot('playlist')} className="p-1.5 rounded hover:bg-neutral-700" title="Add Playlist"><ListMusic size={18} /></button>
                 </div>
-                <p className="text-lg font-medium" style={{ color: '#fff' }}>Sua Grade está Vazia</p>
-                <p style={{ color: '#71717a' }}>Comece adicionando Blocos Mágicos no menu lateral</p>
               </div>
-            ) : (
               <div className="space-y-3">
-                {slots.map((slot, index) => (
-                  <div key={slot.id} className="flex flex-col sm:flex-row items-center gap-3 p-3 rounded-xl transition-all" style={{ background: '#1F2026', border: '1px solid #404048' }}>
-
-                    <div className="flex items-center gap-3 w-full sm:w-auto cursor-move">
-                      <div className="flex flex-col items-center justify-center w-8">
-                        <span className="text-xs font-bold" style={{ color: '#52525b' }}>{index + 1}</span>
-                        <GripVertical size={16} style={{ color: '#404048' }} />
-                      </div>
-                      <div className="p-2 rounded-lg" style={{ background: '#16171B', border: '1px solid #282930' }}>
-                        {getTypeIcon(slot.type)}
-                      </div>
-                    </div>
-
-                    <div className="flex-1 grid grid-cols-1 sm:grid-cols-4 gap-3 w-full items-center">
-
-                      {/* Qtd */}
-                      <div className="flex items-center rounded-lg px-2 py-1 col-span-1" style={{ background: '#16171B', border: '1px solid #404048' }}>
-                        <span className="text-xs mr-2 truncate" style={{ color: '#9ca3af' }}>Qtd:</span>
-                        <input
-                          type="number" min="1" max="20"
-                          value={slot.count}
-                          onChange={(e) => updateSlot(slot.id, 'count', parseInt(e.target.value) || 1)}
-                          className="bg-transparent w-full outline-none text-center font-bold"
-                          style={{ color: '#fff' }}
-                        />
-                      </div>
-
-                      {/* Categoria */}
-                      <div className="flex items-center rounded-lg px-2 py-1.5 sm:col-span-2" style={{ background: '#16171B', border: '1px solid #404048' }}>
-                        <span className="text-xs mr-2" style={{ color: '#9ca3af' }}>De:</span>
-                        <select
-                          value={slot.category}
-                          onChange={(e) => updateSlot(slot.id, 'category', e.target.value)}
-                          className="bg-transparent w-full outline-none text-sm appearance-none font-medium"
-                          style={{ color: '#fff' }}
-                        >
-                          {getCategories(slot.type).map(c => (
-                            <option key={c.value} value={c.value} style={{ background: '#16171B' }}>{c.label}</option>
-                          ))}
-                        </select>
-                      </div>
-
-                      {/* Modo */}
-                      <div className="flex items-center rounded-lg overflow-hidden h-full col-span-1" style={{ border: '1px solid #404048' }}>
-                        <button
-                          onClick={() => updateSlot(slot.id, 'mode', 'aleatorio')}
-                          className="flex-1 h-full flex items-center justify-center transition-all"
-                          style={{ background: slot.mode === 'aleatorio' ? '#DB1931' : '#16171B', color: slot.mode === 'aleatorio' ? '#fff' : '#71717a' }}
-                          title="Tocar arquivo Aleatório (Shuffle)"
-                        >
-                          <Shuffle size={14} />
-                        </button>
-                        <button
-                          onClick={() => updateSlot(slot.id, 'mode', 'sequencial')}
-                          className="flex-1 h-full flex items-center justify-center transition-all"
-                          style={{ background: slot.mode === 'sequencial' ? '#DB1931' : '#16171B', color: slot.mode === 'sequencial' ? '#fff' : '#71717a' }}
-                          title="Tocar na Sequência Original"
-                        >
-                          <ListOrdered size={14} />
-                        </button>
-                      </div>
-                    </div>
-
-                    <button
-                      onClick={() => removeSlot(slot.id)}
-                      className="p-2 ml-auto rounded-lg transition-colors hover:bg-neutral-800"
-                      style={{ color: '#ef4444' }}
+                {slots.map(slot => (
+                  <div key={slot.id} className="flex items-center gap-2 p-2 rounded-lg" style={{ background: '#16171B', border: '1px solid #282930' }}>
+                    {getTypeIcon(slot.type)}
+                    <select
+                      value={slot.category}
+                      onChange={(e) => updateSlot(slot.id, 'category', e.target.value)}
+                      className="text-sm bg-transparent outline-none flex-grow"
                     >
-                      <Trash2 size={18} />
-                    </button>
+                      {getCategories(slot.type).map(cat => <option key={cat.value} value={cat.value} className="bg-neutral-800">{cat.label}</option>)}
+                    </select>
+                    <input
+                      type="number"
+                      value={slot.count}
+                      onChange={(e) => updateSlot(slot.id, 'count', parseInt(e.target.value))}
+                      className="w-12 text-sm bg-transparent outline-none text-center"
+                    />
+                    <button onClick={() => removeSlot(slot.id)} className="text-red-500"><Trash2 size={16} /></button>
                   </div>
                 ))}
               </div>
-            )}
+            </div>
+            <button
+                onClick={salvarProgramacao}
+                className="w-full flex items-center justify-center gap-2 px-6 py-2.5 rounded-lg font-bold transition-colors shadow-lg"
+                style={{ background: '#DB1931', color: '#fff' }}
+            >
+                <Save size={20} /> {editingId ? 'Atualizar Grade' : 'Salvar Nova Grade'}
+            </button>
           </div>
         </div>
-
       </div>
     </div>
   );

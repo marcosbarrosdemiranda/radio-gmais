@@ -1,0 +1,1 @@
+- [Cliente Desktop e Agendamento](cliente-loja-desktop.md) — Auto-start, resiliência a quedas de energia e horários de funcionamento

@@ -77,7 +77,9 @@ export default function EditarPlaylistPage({ params }: { params: Promise<{ id: s
         body: JSON.stringify({
           nome,
           descricao,
+          intervaloChamadas: 15, // Padrão se não for alterado na UI
           musicas,
+          chamadas: [], // Evita quebrar a API se estiver ausente
         }),
       });
 

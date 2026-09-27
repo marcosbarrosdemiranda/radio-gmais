@@ -19,8 +19,28 @@ export default function PlayerPage() {
   const [progress, setProgress] = useState(0);
   const [duration, setDuration] = useState(0);
   const [queue, setQueue] = useState<Track[]>([]);
+  const [activeProgram, setActiveProgram] = useState<any>(null);
   const [showChamada, setShowChamada] = useState(false);
   const audioRef = useRef<HTMLAudioElement>(null);
+
+  const fetchGradeAtiva = async () => {
+    try {
+      const res = await fetch('/api/programacao/ativa');
+      if (res.ok) {
+        const data = await res.json();
+        setActiveProgram(data.grade);
+      } else {
+        setActiveProgram(null);
+      }
+    } catch (err) {
+      console.error('Erro ao buscar grade ativa:', err);
+      setActiveProgram(null);
+    }
+  };
+
+  useEffect(() => {
+    fetchGradeAtiva();
+  }, []);
 
   useEffect(() => {
     if (audioRef.current) {
@@ -28,28 +48,65 @@ export default function PlayerPage() {
     }
   }, [volume, isMuted]);
 
-  const buscarProximaMusica = async () => {
+  const fetchFila = async () => {
     try {
-      const res = await fetch('/api/player/proximo');
+      const res = await fetch('/api/player/fila');
       if (res.ok) {
-        const track = await res.json();
-        setCurrentTrack(track);
-        // Reseta o player e toca automaticamente
-        if (audioRef.current) {
-          audioRef.current.src = track.arquivo_url;
-          audioRef.current.load();
-          audioRef.current.play().then(() => setIsPlaying(true));
+        const data = await res.json();
+
+        if (data.noProgram) {
+            setQueue([]);
+            setCurrentTrack(null);
+            return;
+        }
+
+        setQueue(data);
+        if (!currentTrack && data.length > 0) {
+          const nextTrack = data[0];
+          setCurrentTrack(nextTrack);
+          setQueue(prev => prev.slice(1));
+          if (audioRef.current) {
+            audioRef.current.src = nextTrack.arquivo_url;
+            audioRef.current.load();
+            audioRef.current.play().then(() => setIsPlaying(true));
+          }
         }
       }
     } catch (err) {
-      console.error('Erro ao buscar próxima música:', err);
+      console.error('Erro ao buscar fila:', err);
     }
   };
 
-  // Carrega a primeira ao iniciar
+  // Carrega a fila ao iniciar
   useEffect(() => {
-    buscarProximaMusica();
+    fetchGradeAtiva();
+    fetchFila();
+
+    // Polling a cada 10 segundos
+    const interval = setInterval(() => {
+        fetchGradeAtiva();
+        fetchFila();
+    }, 10000);
+
+    return () => clearInterval(interval);
   }, []);
+
+  const tocarProxima = () => {
+    if (queue.length === 0) {
+      fetchFila();
+      return;
+    }
+
+    const nextTrack = queue[0];
+    setCurrentTrack(nextTrack);
+    setQueue(prev => prev.slice(1));
+
+    if (audioRef.current) {
+      audioRef.current.src = nextTrack.arquivo_url;
+      audioRef.current.load();
+      audioRef.current.play().then(() => setIsPlaying(true));
+    }
+  };
 
   const togglePlay = () => {
     if (isPlaying) {
@@ -62,7 +119,7 @@ export default function PlayerPage() {
 
   const handleEnded = () => {
     setIsPlaying(false);
-    buscarProximaMusica(); // Pula para a próxima automaticamente
+    tocarProxima();
   };
 
   const handleTimeUpdate = () => {
@@ -88,7 +145,6 @@ export default function PlayerPage() {
 
   const triggerChamada = (tipo: string) => {
     setShowChamada(true);
-    // Simular chamada
     setTimeout(() => setShowChamada(false), 5000);
   };
 
@@ -106,7 +162,7 @@ export default function PlayerPage() {
           <Radio size={28} style={{ color: '#DB1931' }} />
           <div>
             <h1 className="text-2xl font-bold">Player de Rádio</h1>
-            <p style={{ color: '#9ca3af' }}>Controle principal do sistema</p>
+            <p style={{ color: '#9ca3af' }}>{activeProgram ? `Grade: ${activeProgram.nome}` : 'Nenhuma grade ativa'}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -214,6 +270,7 @@ export default function PlayerPage() {
                 {isPlaying ? <Pause size={32} /> : <Play size={32} className="ml-1" />}
               </button>
               <button
+                onClick={tocarProxima}
                 className="p-2 rounded-lg transition-colors"
                 style={{ color: '#9ca3af' }}
                 onMouseOver={(e) => e.currentTarget.style.color = '#fff'}
@@ -301,10 +358,11 @@ export default function PlayerPage() {
             <h3 className="font-semibold mb-3">🎵 Fila de Reprodução</h3>
             {queue.length === 0 ? (
               <div className="text-center py-8">
-                <p style={{ color: '#71717a' }}>Nenhuma música na fila</p>
-                <p style={{ color: '#52525b' }} className="text-sm mt-1">
-                  Adicione músicas para começar
-                </p>
+                <p style={{ color: '#71717a' }}>Nenhuma programação ativa</p>
+                <div className="mt-4">
+                    <p className="text-sm mb-2" style={{ color: '#9ca3af' }}>Deseja configurar uma nova programação?</p>
+                    <a href="/programacao" className="text-sm font-bold" style={{ color: '#DB1931' }}>Ir para Cadastro de Programação</a>
+                </div>
               </div>
             ) : (
               <div className="space-y-2">
