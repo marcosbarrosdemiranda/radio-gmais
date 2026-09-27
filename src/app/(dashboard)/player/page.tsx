@@ -29,6 +29,7 @@ export default function PlayerPage() {
   const [chamadas, setChamadas] = useState<Chamada[]>([]);
   const [tocandoChamada, setTocandoChamada] = useState<string | null>(null);
   const [noProgram, setNoProgram] = useState(false);
+  const [statusMsg, setStatusMsg] = useState('');
 
   const audioRef = useRef<HTMLAudioElement>(null);
   const chamadaRef = useRef<HTMLAudioElement>(null);
@@ -78,6 +79,7 @@ export default function PlayerPage() {
 
       if (data.noProgram) {
         setNoProgram(true);
+        setStatusMsg(data.message || 'Nenhuma programação');
         setQueue([]);
         setCurrentTrack(null);
         return;
@@ -330,7 +332,7 @@ export default function PlayerPage() {
         <div className="space-y-4">
           <div className="rounded-xl p-4" style={{ background: '#1F2026', border: '1px solid #404048' }}>
             <h3 className="font-semibold mb-3">🎵 Fila de Reprodução</h3>
-            {noProgram ? (<p>Nenhuma programação</p>) : queue.length === 0 ? <p>Carregando...</p> : (
+            {noProgram ? (<p className="text-amber-500">{statusMsg}</p>) : queue.length === 0 ? <p>Carregando...</p> : (
               <div className="space-y-2">
                 {queue.map((t, i) => <div key={i} className="text-sm truncate">{t.titulo}</div>)}
               </div>
