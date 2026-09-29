@@ -1,5 +1,0 @@
-fastapi
-uvicorn
-TTS
-torch
-# Check https://pytorch.org/get-started/locally/ for specific CUDA installation instructions if needed

@@ -36,8 +36,7 @@ Source: "C:\Claude Code\radio-gmais\data\radio-gmais.db"; DestDir: "{app}\data";
 #endif
 
 #if Edicao == "Matriz"
-Source: "C:\Claude Code\radio-gmais\server_xtts.py"; DestDir: "{app}"
-Source: "C:\Claude Code\radio-gmais\requirements_ia.txt"; DestDir: "{app}"
+; Aqui você pode colocar arquivos exclusivos da matriz no futuro
 #endif
 
 [Icons]
