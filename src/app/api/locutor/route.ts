@@ -52,25 +52,27 @@ export async function POST(req: Request) {
       try {
         const { MsEdgeTTS, OUTPUT_FORMAT } = require('msedge-tts');
         const tts = new MsEdgeTTS();
-        const selectedVoice = vozId || (idioma === 'pt-BR' ? 'pt-BR-FranciscaNeural' : 'en-US-AriaNeural');
-        await tts.setMetadata(selectedVoice, OUTPUT_FORMAT.AUDIO_24KHZ_48KBITRATE_MONO_MP3);
-        const audioStream = tts.toStream(texto);
-        buffer = await new Promise((resolve, reject) => {
-             const chunks: any[] = [];
-             audioStream.on('data', (c: any) => chunks.push(c));
-             audioStream.on('end', () => resolve(Buffer.concat(chunks)));
-             audioStream.on('error', reject);
-        });
-      } catch (err: any) { throw new Error("Erro Microsft: " + err.message); }
+        // Use AntonioNeural for Brazilian Portuguese, GuyNeural for English as they sound more natural
+        const selectedVoice = vozId || (idioma === 'pt-BR' ? 'pt-BR-AntonioNeural' : 'en-US-GuyNeural');
+        await tts.setMetadata(selectedVoice, OUTPUT_FORMAT.AUDIO_48KHZ_192KBITRATE_MONO_MP3);
 
-    } else if (motor === 'coqui') {
-      const pyResponse = await fetch('http://127.0.0.1:5002/api/tts', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ text: texto, language: idioma, speaker: vozId || 'default' })
-      });
-      if (!pyResponse.ok) throw new Error('Servidor Local XTTS offline.');
-      buffer = Buffer.from(await pyResponse.arrayBuffer());
+        // Add SSML for more natural speech with slight prosody variations and pauses
+        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${idioma}'>
+          <voice name='${selectedVoice}'>
+            <prosody rate='medium' pitch='+0%' volume='+0%'>
+              ${texto.replace(/([.!?])\s+/g, '$1 <break time=\"200ms\"/> ')} <!-- Add small pauses after punctuation -->
+            </prosody>
+          </voice>
+        </speak>`;
+
+        // Use toFile method which is more stable for getting the audio buffer
+        const result = await tts.toFile(uploadsDir, ssml, {});
+        const audioFilePath = result.audioFilePath;
+        buffer = await fs.promises.readFile(audioFilePath);
+
+        // Clean up the temporary file
+        await fs.promises.unlink(audioFilePath);
+      } catch (err: any) { throw new Error("Erro Microsoft: " + err.message); }
 
     } else if (motor === 'elevenlabs') {
       // Brecha configurada para ElevenLabs ou OpenAI TTS
@@ -110,6 +112,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ id: info.lastInsertRowid, arquivo: `/uploads/${arquivoNome}`, message: 'Sucesso!' });
 
   } catch (error: any) {
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json({ error: error.message, stack: error.stack }, { status: 500 });
   }
 }

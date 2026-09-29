@@ -95,16 +95,6 @@ export default function LocutorPage() {
                   <p className="text-xs text-gray-400 mt-1">Emulação das vozes super realistas do Windows. 100% Grátis!</p>
                </div>
 
-               {/* 3. XTTS LOCAL */}
-               <div
-                  onClick={() => {setMotor('coqui'); setVozId('');}}
-                  className={`p-3 rounded-lg border-2 cursor-pointer transition-colors ${motor === 'coqui' ? 'border-purple-500 bg-purple-500/10' : 'border-gray-700 bg-gray-800 hover:border-gray-500'}`}
-               >
-                  <Cpu className={`mb-2 ${motor === 'coqui' ? 'text-purple-500' : 'text-gray-400'}`} size={24} />
-                  <h3 className="font-bold text-sm">Servidor XTTS (Local)</h3>
-                  <p className="text-xs text-gray-400 mt-1">Clonagem de voz via GPU. Requer setup Python e placa de vídeo.</p>
-               </div>
-
                {/* 4. PREMIUM */}
                <div
                   onClick={() => setMotor('elevenlabs')}
@@ -143,9 +133,6 @@ export default function LocutorPage() {
                            <option value="pt-BR">Português (Brasil)</option>
                            <option value="en-US">Inglês (Standard)</option>
                        </select>
-                   )}
-                   {motor === 'coqui' && (
-                       <input type="text" value={vozId} onChange={e => setVozId(e.target.value)} placeholder="Nome do speaker local (Ex: joao_clone)" className="w-full bg-gray-800 rounded-lg p-3 text-gray-300 border border-gray-700" />
                    )}
                    {motor === 'elevenlabs' && (
                        <input type="text" value={vozId} onChange={e => setVozId(e.target.value)} placeholder="ID da Voz (Ex: EXAVITQu4vr4...)" className="w-full bg-gray-800 rounded-lg p-3 text-gray-300 border border-gray-700" />
