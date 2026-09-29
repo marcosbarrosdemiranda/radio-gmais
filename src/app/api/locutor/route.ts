@@ -56,14 +56,90 @@ export async function POST(req: Request) {
         const selectedVoice = vozId || (idioma === 'pt-BR' ? 'pt-BR-AntonioNeural' : 'en-US-GuyNeural');
         await tts.setMetadata(selectedVoice, OUTPUT_FORMAT.AUDIO_48KHZ_192KBITRATE_MONO_MP3);
 
-        // Add SSML for more natural speech with slight prosody variations and pauses
-        const ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${idioma}'>
-          <voice name='${selectedVoice}'>
-            <prosody rate='medium' pitch='+0%' volume='+0%'>
-              ${texto.replace(/([.!?])\s+/g, '$1 <break time=\"200ms\"/> ')} <!-- Add small pauses after punctuation -->
-            </prosody>
-          </voice>
-        </speak>`;
+        // Função para gerar SSML com variação natural de prosódia para locutor de supermercado
+        const generateExpressiveSSML = (texto: string, idioma: string) => {
+          // Divide o texto em sentenças para aplicar variação contextual
+          const sentences = texto.split(/([.!?]+)\s*/).filter(s => s.trim().length > 0);
+
+          let ssml = `<speak version='1.0' xmlns='http://www.w3.org/2001/10/synthesis' xml:lang='${idioma}'>\n`;
+          ssml += `  <voice name='${selectedVoice}'>\n`;
+
+          sentences.forEach((sentence, index) => {
+            if (!sentence.trim()) return;
+
+            // Determina o tipo de sentença para entonação apropriada
+            const isQuestion = sentence.trim().endsWith('?');
+            const isExclamation = sentence.trim().endsWith('!');
+            const isDeclaration = sentence.trim().endsWith('.') || !['?', '!'].includes(sentence.slice(-1));
+
+            // Variação de pitch baseada no tipo e posição da sentença - mais animado para supermercado
+            let pitchAdjustment = '0%';
+            let rateAdjustment = 'medium';
+
+            if (isQuestion) {
+              pitchAdjustment = '+8%'; // Aumento mais pronunciado para perguntas
+              if (index === sentences.length - 1) pitchAdjustment = '+12%'; // Última pergunta mais expressiva
+            } else if (isExclamation) {
+              pitchAdjustment = '+6%';
+              rateAdjustment = 'medium+'; // Mais rápido para exclamações
+            } else if (index === 0) {
+              pitchAdjustment = '+4%'; // Começa mais animado
+              rateAdjustment = 'medium+'; // Levemente mais rápido no início
+            } else if (index === sentences.length - 1) {
+              pitchAdjustment = '-2%'; // Termina um pouco mais baixo (natural)
+              rateAdjustment = 'medium'; // Volta ao normal no final
+            }
+
+            // Ajuste extra para contexto de supermercado: mais energia em ofertas
+            const textoLower = sentence.toLowerCase();
+            const temOferta = textoLower.includes('oferta') || textoLower.includes('desconto') ||
+                            textoLower.includes('promoção') || textoLower.includes('líquido') ||
+                            /\d+%/.test(sentence); // Detecta porcentagens
+
+            if (temOferta) {
+              pitchAdjustment = (parseInt(pitchAdjustment) + 3) + '%'; // Mais animado para ofertas
+              rateAdjustment = rateAdjustment === 'medium' ? 'medium+' : rateAdjustment;
+            }
+
+            // Pausas contextuais mais naturais
+            let pauseBefore = '150ms';
+            let pauseAfter = '250ms';
+
+            if (index > 0) {
+              // Pausa maior após pontuação forte
+              const prevChar = sentences[index-1].slice(-1);
+              if (['.','!','?'].includes(prevChar)) pauseBefore = '350ms';
+            }
+
+            ssml += `    <prosody rate='${rateAdjustment}' pitch='${pitchAdjustment}' volume='+0%'>\n`;
+
+            // Enfatiza palavras importantes para contexto de supermercado
+            let emphasizedText = sentence
+              // Enfatiza números e preços
+              .replace(/(\d+[.,]?\d*)/g, '<emphasis level=\"moderate\">$1</emphasis>')
+              // Enfatiza palavras de urgência/oferta típicas de supermercado
+              .replace(/\b(hoje|agora|últimas|última|oferta|desconto|promoção|grátis|líquido|meia-entrada|dois por um|leve\d|pague\d)\b/gi,
+                       '<emphasis level=\"strong\">$1</emphasis>')
+              // Enfatiza unidades de medida e valores monetários
+              .replace(/\b(kg|g|l|ml|unidade|unidades|pc|peça|peças|R\$\s*\d+[.,]?\d*)\b/gi,
+                       '<emphasis level=\"moderate\">$1</emphasis>');
+
+            ssml += `      ${emphasizedText}\n`;
+            ssml += `    </prosody>\n`;
+
+            // Pausa contextual após a sentença
+            if (index < sentences.length - 1) {
+              const pauseTime = isQuestion || isExclamation ? '300ms' : '200ms';
+              ssml += `    <break time=\"${pauseTime}\"/>\n`;
+            }
+          });
+
+          ssml += `  </voice>\n</speak>`;
+          return ssml;
+        };
+
+        // Use esta função no lugar do SSML simples:
+        const ssml = generateExpressiveSSML(texto, idioma);
 
         // Use toFile method which is more stable for getting the audio buffer
         const result = await tts.toFile(uploadsDir, ssml, {});
