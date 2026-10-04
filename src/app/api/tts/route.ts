@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { generateSpeech, TTSConfig } from '@/lib/tts';
 
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { texto, vozId, velocidade = 1.0 } = body;
+    const { texto, vozId, motor = 'voicestudio', apiKey = '' } = body;
 
     if (!texto) {
       return NextResponse.json(
@@ -12,18 +13,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // TODO: Integrate with TTS provider (ElevenLabs, Azure, Google)
-    // For now, return a mock response
-    const audioUrl = `/api/audio/mock-${Date.now()}.mp3`;
+    const config: TTSConfig = {
+      provider: motor,
+      apiKey,
+      voiceId: vozId,
+    };
+
+    const result = await generateSpeech(texto, config);
 
     return NextResponse.json({
-      audioUrl,
-      duracao: Math.ceil(texto.split(/\s+/).length / 150 * 60),
+      audioUrl: `data:audio/mp3;base64,${result.audioBuffer.toString('base64')}`,
+      duracao: result.duration,
       vozId,
     });
-  } catch (error) {
+  } catch (error: any) {
     return NextResponse.json(
-      { error: 'Erro ao gerar áudio' },
+      { error: 'Erro ao gerar áudio: ' + error.message },
       { status: 500 }
     );
   }

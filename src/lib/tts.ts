@@ -2,7 +2,7 @@
 // Supports multiple providers: ElevenLabs, Google TTS, Azure
 
 export interface TTSConfig {
-  provider: 'elevenlabs' | 'google' | 'azure';
+  provider: 'elevenlabs' | 'google' | 'azure' | 'voicestudio';
   apiKey: string;
   voiceId?: string;
   language?: string;
@@ -29,9 +29,40 @@ export async function generateSpeech(
       return generateGoogleTTS(text, config);
     case 'azure':
       return generateAzureTTS(text, config);
+    case 'voicestudio':
+      return generateVoiceStudioTTS(text, config);
     default:
       throw new Error(`Provider ${config.provider} not supported`);
   }
+}
+
+async function generateVoiceStudioTTS(
+  text: string,
+  config: TTSConfig
+): Promise<TTSResult> {
+  const response = await fetch('http://localhost:3900/v1/audio/speech', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({
+      model: 'tts-1',
+      input: text,
+      voice: config.voiceId || 'alloy',
+      response_format: 'mp3',
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error('VoiceStudio TTS failed');
+  }
+
+  const audioBuffer = Buffer.from(await response.arrayBuffer());
+  return {
+    audioBuffer,
+    duration: estimateDuration(text),
+    format: 'mp3',
+  };
 }
 
 async function generateElevenLabs(

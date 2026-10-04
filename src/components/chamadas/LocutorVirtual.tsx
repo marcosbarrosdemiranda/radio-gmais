@@ -10,6 +10,7 @@ const voices = [
   { id: 'pt-BR-GiovannaNeural', nome: 'Giovanna', genero: 'feminino', provedor: 'azure' },
   { id: 'RXicbHjhMt8qkSMq7KsF', nome: 'Rafael', genero: 'masculino', provedor: 'elevenlabs' },
   { id: 'pNInz6obpgDQGcFmaJgB', nome: 'Adam', genero: 'masculino', provedor: 'elevenlabs' },
+  { id: 'alloy', nome: 'VoiceStudio Padrão', genero: 'neutro', provedor: 'voicestudio' },
 ];
 
 interface LocutorVirtualProps {
